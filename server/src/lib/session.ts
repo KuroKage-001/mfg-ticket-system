@@ -7,7 +7,9 @@ export const sessionOptions: SessionOptions = {
   cookieOptions: {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    // Must be "none" in production so the cookie is sent cross-origin
+    // (Vercel frontend → Railway backend). Requires secure: true.
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
     maxAge: 60 * 60 * 24, // 24 hours (86400 seconds)
   },
 };
