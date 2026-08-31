@@ -17,8 +17,8 @@ const ADMIN_TRANSITIONS: Record<Status, Status[]> = {
 };
 
 const EMPLOYEE_TRANSITIONS: Record<Status, Status[]> = {
-  OPEN:        ["IN_PROGRESS", "RESOLVED"],
-  IN_PROGRESS: ["RESOLVED"],
+  OPEN:        ["IN_PROGRESS", "RESOLVED", "CLOSED"],
+  IN_PROGRESS: ["RESOLVED",   "CLOSED"],
   RESOLVED:    [],
   CLOSED:      [],
   CANCELLED:   [],

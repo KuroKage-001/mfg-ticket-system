@@ -571,9 +571,9 @@ export async function transitionStatus(
 
   // ── EMPLOYEE-specific guards (403 before 422) ────────────────────────────────
   if (actor.role === "EMPLOYEE") {
-    // Req 7.7 — employees can never close or cancel
-    if (newStatus === "CLOSED" || newStatus === "CANCELLED") {
-      throw new ApiError(403, "Employees cannot close or cancel tickets.");
+    // Req 7.7 — employees can never cancel tickets
+    if (newStatus === "CANCELLED") {
+      throw new ApiError(403, "Employees cannot cancel tickets.");
     }
 
     // Special case: an employee may take an OPEN unassigned ticket by

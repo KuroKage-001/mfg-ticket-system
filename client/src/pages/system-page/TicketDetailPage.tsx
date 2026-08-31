@@ -283,16 +283,15 @@ function TicketDetailPage(): React.ReactElement {
    * Persists the status change to the API so the DB stays in sync with the
    * timer's local completion state.
    *
-   * ADMINs:     TASK → CLOSED, everything else → RESOLVED
-   * EMPLOYEEs:  always RESOLVED (server blocks CLOSED for employees)
+   * ADMINs:     TASK/RITM → CLOSED, everything else → RESOLVED
+   * EMPLOYEEs:  TASK/RITM → CLOSED, INC → RESOLVED
    */
   const handleTimerComplete = useCallback(async (): Promise<void> => {
     if (!ticket) return;
     if (ticket.status === 'RESOLVED' || ticket.status === 'CLOSED' || ticket.status === 'CANCELLED') return;
     setTimerError('');
     try {
-      const isAdmin = user?.role === 'ADMIN';
-      const targetStatus = (isAdmin && timerTicketType === 'TASK') ? 'CLOSED' : 'RESOLVED';
+      const targetStatus = (timerTicketType === 'TASK' || timerTicketType === 'REQUEST') ? 'CLOSED' : 'RESOLVED';
       await transitionStatus(ticket.id, targetStatus);
       void refetch();
     } catch (err: unknown) {
