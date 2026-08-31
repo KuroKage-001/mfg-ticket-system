@@ -96,24 +96,20 @@ function buildDescription(entry: TicketActivityWithActor): React.ReactElement {
     }
 
     case 'ASSIGNMENT_CHANGED': {
-      // newValue is the assignee's user ID (or null for unassign)
-      // oldValue is the previous assignee's user ID (or null)
-      // We display the raw values — in a real system you'd resolve IDs to names,
-      // but the activity logger stores IDs so we label them clearly.
       if (!next) {
         return <span>{actor} removed the assignee</span>;
       }
       if (!old) {
         return (
           <span>
-            {actor} assigned the ticket to user <span className="font-medium text-gray-800">#{next}</span>
+            {actor} assigned the ticket to <span className="font-semibold text-gray-900">{next}</span>
           </span>
         );
       }
       return (
         <span>
-          {actor} reassigned from user <span className="font-medium text-gray-600">#{old}</span>{' '}
-          to user <span className="font-medium text-gray-800">#{next}</span>
+          {actor} reassigned from <span className="font-medium text-gray-600">{old}</span>{' '}
+          to <span className="font-semibold text-gray-900">{next}</span>
         </span>
       );
     }

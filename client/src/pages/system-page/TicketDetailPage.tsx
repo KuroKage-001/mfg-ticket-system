@@ -589,7 +589,7 @@ function TicketDetailPage(): React.ReactElement {
           )}
         </div>
 
-        {/* Reopen — shown to employees when ticket is resolved/closed */}
+        {/* Reopen — shown to ALL employees (not just assignee) when ticket is resolved/closed */}
         {!isAdmin && showReopen && (
           <div className="mt-4 pt-4 border-t border-gray-100">
             {reopenError && (
@@ -618,7 +618,7 @@ function TicketDetailPage(): React.ReactElement {
                 </>
               )}
             </button>
-            <p className="mt-1.5 text-xs text-gray-400">Reopening archives the current timer session so you can start fresh while keeping the previous record.</p>
+            <p className="mt-1.5 text-xs text-gray-400">Reopening archives the current timer session and transitions the ticket back to In Progress.</p>
           </div>
         )}
       </div>
@@ -644,30 +644,34 @@ function TicketDetailPage(): React.ReactElement {
               Attachments <span className="text-gray-400 font-normal">({attachments.length})</span>
             </p>
             <div className="flex flex-wrap gap-3">
-              {attachments.map((att) => (
-                <a
-                  key={att.id}
-                  href={`${serverOrigin}${att.url}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="group relative block w-24 h-24 shrink-0 rounded-lg overflow-hidden border border-gray-200 hover:border-blue-400 transition-colors"
-                  title={att.originalName}
-                >
-                  <img
-                    src={`${serverOrigin}${att.url}`}
-                    alt={att.originalName}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      (e.currentTarget as HTMLImageElement).style.display = 'none';
-                    }}
-                  />
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-end">
-                    <span className="w-full truncate bg-black/50 text-white text-xs px-1.5 py-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      {att.originalName}
-                    </span>
-                  </div>
-                </a>
-              ))}
+              {attachments.map((att) => {
+                // Cloudinary URLs are absolute (https://...), local uploads are relative paths
+                const imgSrc = att.url.startsWith('http') ? att.url : `${serverOrigin}${att.url}`;
+                return (
+                  <a
+                    key={att.id}
+                    href={imgSrc}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="group relative block w-24 h-24 shrink-0 rounded-lg overflow-hidden border border-gray-200 hover:border-blue-400 transition-colors"
+                    title={att.originalName}
+                  >
+                    <img
+                      src={imgSrc}
+                      alt={att.originalName}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-end">
+                      <span className="w-full truncate bg-black/50 text-white text-xs px-1.5 py-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        {att.originalName}
+                      </span>
+                    </div>
+                  </a>
+                );
+              })}
             </div>
           </div>
         )}
@@ -746,138 +750,125 @@ function TicketDetailPage(): React.ReactElement {
       </div>
 
       {/* ------------------------------------------------------------------ */}
-      {/* Comments                                                             */}
+      {/* Comments + Image Upload (combined panel)                           */}
       {/* ------------------------------------------------------------------ */}
-      <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">
-          Comments
-        </h2>
-        <div className="mb-6">
-          {/*
-           * Comments are stored in local state and refreshed on every
-           * refetch, including after a new comment is posted (so the
-           * ActivityFeed also picks up the COMMENT_ADDED entry).
-           */}
+      <div className="rounded-lg border border-gray-200 bg-white shadow-sm" onPaste={handleUploadPaste}>
+        <div className="px-6 pt-6 pb-0">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500 mb-4">
+            Comments
+          </h2>
           <CommentList comments={comments} />
         </div>
-        <div className="border-t border-gray-100 pt-4">
-          <p className="mb-2 text-xs font-medium text-gray-500">Add a comment</p>
-          {/*
-           * handleCommentAdded triggers a full refetch so both the CommentList
-           * and the ActivityFeed update after a successful post (Req 9.1, 10.2).
-           */}
+
+        {/* Divider */}
+        <div className="border-t border-gray-100 mx-6 mt-6" />
+
+        {/* Combined comment + image input area */}
+        <div className="px-6 py-5 space-y-4">
+          <p className="text-xs font-medium text-gray-500">Add a comment</p>
           <CommentForm ticketId={ticket.id} onCommentAdded={handleCommentAdded} />
-        </div>
 
-        {/* ---------------------------------------------------------------- */}
-        {/* Image uploader                                                    */}
-        {/* ---------------------------------------------------------------- */}
-        <div className="mt-6 border-t border-gray-100 pt-5" onPaste={handleUploadPaste}>
-          <p className="mb-2 text-xs font-medium text-gray-500">Upload images</p>
+          {/* Image attach row */}
+          <div>
+            <p className="text-xs font-medium text-gray-500 mb-2">Attach images</p>
 
-          {/* Drop zone */}
-          <div
-            onDrop={handleDropZoneDrop}
-            onDragOver={handleDropZoneDragOver}
-            onDragLeave={handleDropZoneDragLeave}
-            onClick={() => { fileInputRef.current?.click(); }}
-            role="button"
-            tabIndex={0}
-            aria-label="Upload images — click, drag & drop, or paste"
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') fileInputRef.current?.click(); }}
-            className={[
-              'flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-6 py-8 cursor-pointer transition-colors select-none',
-              isDragging
-                ? 'border-blue-400 bg-blue-50'
-                : 'border-gray-200 bg-gray-50 hover:border-gray-400 hover:bg-gray-100',
-            ].join(' ')}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className={`h-8 w-8 ${isDragging ? 'text-blue-400' : 'text-gray-300'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-            <p className={`text-sm font-medium ${isDragging ? 'text-blue-500' : 'text-gray-400'}`}>
-              {isDragging ? 'Drop images here' : 'Click, drag & drop, or paste images'}
-            </p>
-            <p className="text-xs text-gray-400">PNG, JPG, GIF, WEBP · max 5 MB each · up to {MAX_UPLOAD_FILES} files</p>
-          </div>
+            {/* Drop zone */}
+            <div
+              onDrop={handleDropZoneDrop}
+              onDragOver={handleDropZoneDragOver}
+              onDragLeave={handleDropZoneDragLeave}
+              onClick={() => { fileInputRef.current?.click(); }}
+              role="button"
+              tabIndex={0}
+              aria-label="Upload images — click, drag & drop, or paste"
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') fileInputRef.current?.click(); }}
+              className={[
+                'flex items-center gap-3 rounded-lg border-2 border-dashed px-4 py-3 cursor-pointer transition-colors select-none',
+                isDragging
+                  ? 'border-blue-400 bg-blue-50'
+                  : uploadFiles.length > 0
+                    ? 'border-green-300 bg-green-50'
+                    : 'border-gray-200 bg-gray-50 hover:border-gray-400 hover:bg-gray-100',
+              ].join(' ')}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 shrink-0 ${isDragging ? 'text-blue-400' : 'text-gray-300'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <div className="flex-1 min-w-0">
+                <p className={`text-sm ${isDragging ? 'text-blue-600 font-medium' : 'text-gray-500'}`}>
+                  {isDragging ? 'Drop images here' : uploadFiles.length > 0 ? `${uploadFiles.length} image${uploadFiles.length !== 1 ? 's' : ''} staged` : 'Click, drag & drop, or paste images'}
+                </p>
+                <p className="text-xs text-gray-400">PNG, JPG, GIF, WEBP · max 5 MB each · up to {MAX_UPLOAD_FILES} files</p>
+              </div>
+              {uploadFiles.length > 0 && (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); void handleUploadSubmit(); }}
+                  disabled={isUploading}
+                  className="shrink-0 inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {isUploading ? (
+                    <>
+                      <svg className="animate-spin h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                      </svg>
+                      Uploading…
+                    </>
+                  ) : (
+                    <>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                      </svg>
+                      Upload
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
 
-          {/* Hidden file input */}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            multiple
-            className="hidden"
-            onChange={(e) => {
-              if (e.target.files) { addUploadFiles(e.target.files); e.target.value = ''; }
-            }}
-          />
+            {/* Hidden file input */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files) { addUploadFiles(e.target.files); e.target.value = ''; }
+              }}
+            />
 
-          {/* Staged previews */}
-          {uploadPreviews.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {uploadPreviews.map((src, i) => (
-                <div key={i} className="relative group w-20 h-20 shrink-0 rounded-lg overflow-hidden border border-gray-200">
-                  <img src={src} alt={uploadFiles[i]?.name ?? ''} className="w-full h-full object-cover" />
-                  {/* Filename tooltip on hover */}
-                  <div className="absolute inset-0 flex items-end bg-black/0 group-hover:bg-black/20 transition-colors">
-                    <span className="w-full truncate bg-black/50 text-white text-xs px-1 py-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                      {uploadFiles[i]?.name}
-                    </span>
+            {/* Staged previews */}
+            {uploadPreviews.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {uploadPreviews.map((src, i) => (
+                  <div key={i} className="relative group w-16 h-16 shrink-0 rounded-lg overflow-hidden border border-gray-200">
+                    <img src={src} alt={uploadFiles[i]?.name ?? ''} className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 flex items-end bg-black/0 group-hover:bg-black/20 transition-colors">
+                      <span className="w-full truncate bg-black/50 text-white text-xs px-1 py-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                        {uploadFiles[i]?.name}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); removeUploadFile(i); }}
+                      className="absolute top-0.5 right-0.5 flex items-center justify-center h-4 w-4 rounded-full bg-red-500 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                      aria-label={`Remove ${uploadFiles[i]?.name ?? 'image'}`}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-2.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                      </svg>
+                    </button>
                   </div>
-                  {/* Remove button */}
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); removeUploadFile(i); }}
-                    className="absolute top-0.5 right-0.5 flex items-center justify-center h-5 w-5 rounded-full bg-red-500 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
-                    aria-label={`Remove ${uploadFiles[i]?.name ?? 'image'}`}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                    </svg>
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            )}
 
-          {/* Error / success feedback */}
-          {uploadError && (
-            <p className="mt-2 text-xs text-red-600" role="alert">{uploadError}</p>
-          )}
-          {uploadSuccess && (
-            <p className="mt-2 text-xs text-emerald-600" role="status">Images uploaded successfully.</p>
-          )}
-
-          {/* Upload button */}
-          {uploadFiles.length > 0 && (
-            <div className="mt-3 flex items-center justify-between">
-              <span className="text-xs text-gray-400">{uploadFiles.length} image{uploadFiles.length !== 1 ? 's' : ''} staged</span>
-              <button
-                type="button"
-                onClick={() => { void handleUploadSubmit(); }}
-                disabled={isUploading}
-                className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1"
-              >
-                {isUploading ? (
-                  <>
-                    <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                    </svg>
-                    Uploading…
-                  </>
-                ) : (
-                  <>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                    </svg>
-                    Upload {uploadFiles.length} image{uploadFiles.length !== 1 ? 's' : ''}
-                  </>
-                )}
-              </button>
-            </div>
-          )}
+            {/* Feedback */}
+            {uploadError && <p className="mt-2 text-xs text-red-600" role="alert">{uploadError}</p>}
+            {uploadSuccess && <p className="mt-2 text-xs text-emerald-600" role="status">Images uploaded successfully.</p>}
+          </div>
         </div>
       </div>
     </div>

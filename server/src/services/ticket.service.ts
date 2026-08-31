@@ -532,17 +532,25 @@ export async function assignTicket(
   // ── Persist ──────────────────────────────────────────────────────────────────
   const previousAssignedToId = ticket.assignedToId;
 
+  // Fetch the previous assignee's name for a human-readable activity log
+  const previousAssignee = previousAssignedToId
+    ? await prisma.user.findUnique({
+        where: { id: previousAssignedToId },
+        select: { fullName: true },
+      })
+    : null;
+
   const updated = await prisma.ticket.update({
     where: { id },
     data: { assignedToId },
     include: TICKET_DETAIL_INCLUDE,
   });
 
-  // ── Activity log ─────────────────────────────────────────────────────────────
+  // ── Activity log — store names, not IDs ──────────────────────────────────────
   await ActivityLogger.log({
     action: ActivityAction.ASSIGNMENT_CHANGED,
-    oldValue: String(previousAssignedToId ?? ""),
-    newValue: String(assignedToId),
+    oldValue: previousAssignee?.fullName ?? null,
+    newValue: targetUser.fullName,
     ticketId: id,
     actorId: actor.id,
   });
@@ -580,13 +588,17 @@ export async function transitionStatus(
 
     // Special case: an employee may take an OPEN unassigned ticket by
     // transitioning it to IN_PROGRESS (i.e. clicking "Start").
-    // In all other cases, employees may only act on tickets assigned to them.
     const isTakingOpenTicket =
       currentStatus === "OPEN" &&
       newStatus === "IN_PROGRESS" &&
       ticket.assignedToId === null;
 
-    if (!isAssigned && !isTakingOpenTicket) {
+    // Any employee can reopen a RESOLVED or CLOSED ticket (transition to IN_PROGRESS)
+    const isReopening =
+      (currentStatus === "RESOLVED" || currentStatus === "CLOSED") &&
+      newStatus === "IN_PROGRESS";
+
+    if (!isAssigned && !isTakingOpenTicket && !isReopening) {
       throw new ApiError(403, "You are not assigned to this ticket.");
     }
   }
@@ -677,7 +689,7 @@ export async function transitionStatus(
     await ActivityLogger.log({
       action: ActivityAction.ASSIGNMENT_CHANGED,
       oldValue: null,
-      newValue: String(actor.id),
+      newValue: actor.fullName,
       ticketId: id,
       actorId: actor.id,
     });

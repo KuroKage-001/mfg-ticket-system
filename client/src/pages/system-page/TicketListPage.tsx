@@ -85,23 +85,26 @@ interface ConfirmResolveModalProps {
 }
 
 function ConfirmResolveModal({ ticketNumber, assigneeName, onConfirm, onCancel }: ConfirmResolveModalProps): React.ReactElement {
+  const block = (e: React.MouseEvent): void => { e.stopPropagation(); e.preventDefault(); };
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="confirm-resolve-title"
-      // Stop all clicks inside the modal from reaching table rows beneath
-      onClick={(e) => { e.stopPropagation(); }}
+      onClick={block}
+      onMouseDown={block}
     >
-      {/* Backdrop — clicking dismisses without resolving */}
+      {/* Backdrop — clicking dismisses WITHOUT resolving */}
       <div
         className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-        onClick={(e) => { e.stopPropagation(); onCancel(); }}
+        onClick={(e) => { block(e); onCancel(); }}
+        onMouseDown={block}
         aria-hidden="true"
       />
       {/* Panel */}
-      <div className="relative z-10 w-full max-w-sm rounded-xl bg-white shadow-2xl ring-1 ring-gray-200 p-6">
+      <div className="relative z-10 w-full max-w-sm rounded-xl bg-white shadow-2xl ring-1 ring-gray-200 p-6" onClick={block} onMouseDown={block}>
         <div className="flex items-start gap-3 mb-4">
           <div className="shrink-0 flex items-center justify-center h-10 w-10 rounded-full bg-amber-100">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
@@ -117,20 +120,20 @@ function ConfirmResolveModal({ ticketNumber, assigneeName, onConfirm, onCancel }
               <span className="font-medium text-gray-700">{assigneeName ?? 'another user'}</span>.
               Resolving it will log your account as the actor in the activity feed.
             </p>
-            <p className="mt-1.5 text-xs text-gray-400">This action will be recorded in the ticket activity log.</p>
+            <p className="mt-1.5 text-xs text-gray-400">This action will only be recorded after you click confirm.</p>
           </div>
         </div>
         <div className="flex justify-end gap-2">
           <button
             type="button"
-            onClick={(e) => { e.stopPropagation(); onCancel(); }}
+            onClick={(e) => { block(e); onCancel(); }}
             className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-400 transition-colors"
           >
             Cancel
           </button>
           <button
             type="button"
-            onClick={(e) => { e.stopPropagation(); onConfirm(); }}
+            onClick={(e) => { block(e); onConfirm(); }}
             className="px-3 py-1.5 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 transition-colors"
           >
             Yes, Resolve
