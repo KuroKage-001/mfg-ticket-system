@@ -58,8 +58,11 @@ function TicketTimer({ ticketId, compact = false, onComplete, onStart, externalT
   const { elapsed, completedAt, startedAt, ticketType, externalId, complete, start } =
     useTicketTimer(ticketId);
 
+  // handleComplete signals intent only — it does NOT call complete() locally.
+  // The caller (TimerCell) is responsible for calling completeTimer() only
+  // after the API call succeeds. This prevents the timer from showing
+  // "Resolved" before the server has confirmed the status change.
   const handleComplete = (): void => {
-    complete();
     onComplete?.();
   };
 
