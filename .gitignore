@@ -43,3 +43,6 @@ coverage/
 # Misc
 *.pem
 .vercel
+
+# Uploaded user files
+server/public/uploads/
