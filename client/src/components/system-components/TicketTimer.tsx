@@ -55,7 +55,7 @@ interface TicketTimerProps {
 // ---------------------------------------------------------------------------
 
 function TicketTimer({ ticketId, compact = false, onComplete, onStart, externalTicketId = '' }: TicketTimerProps): React.ReactElement {
-  const { elapsed, completedAt, startedAt, ticketType, externalId, complete, start } =
+  const { elapsed, completedAt, startedAt, ticketType, externalId, start } =
     useTicketTimer(ticketId);
 
   // handleComplete signals intent only — it does NOT call complete() locally.

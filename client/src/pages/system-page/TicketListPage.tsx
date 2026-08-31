@@ -167,8 +167,6 @@ interface TimerCellProps {
 
 function TimerCell({ ticket, externalId, compact, onCompleteIntent, onStarted }: TimerCellProps): React.ReactElement {
   const { startedAt, start, complete, reset } = useTicketTimer(ticket.id);
-  // Ref that is true while handleStart is in-flight so the stale-record
-  // cleanup useEffect does not wipe the record we just wrote.
   const isStartingRef = useRef(false);
   const [starting, setStarting] = useState(false);
 
@@ -276,11 +274,17 @@ function TicketListPage(): React.ReactElement {
   const [assignedToId, setAssignedToId] = useState<string>('');
   const [page, setPage] = useState<number>(1);
 
-  // Inline resolve state: ticketId → loading
+  // Inline resolve state
   const [, setResolvingId] = useState<number | null>(null);
   const [resolveError, setResolveError] = useState<string>('');
 
-  // Confirmation dialog state — shown before resolving a ticket not assigned to the current user
+  // Ref to hold the completeTimer callback — stored here so it survives
+  // re-renders and can only be invoked from the explicit confirm button.
+  const pendingCompleteTimerRef = useRef<(() => void) | null>(null);
+  // Guard: true while confirmation dialog is open — blocks any re-trigger
+  const confirmOpenRef = useRef(false);
+
+  // Confirmation dialog state
   const [confirmResolve, setConfirmResolve] = useState<{
     ticketId: number;
     ticketNumber: string;
@@ -353,31 +357,42 @@ function TicketListPage(): React.ReactElement {
   }, [user, allTickets]);
 
   // Called by TimerCell when the user clicks the action button.
-  // `completeTimer` is the callback that marks the local timer as done — we
-  // only invoke it after confirmation (if needed) and after the API succeeds.
+  // Uses refs to ensure completeTimer is NEVER called unless the user
+  // explicitly clicks the confirm button — clicking outside the modal
+  // or cancelling will never trigger a resolve.
   const handleInlineResolve = useCallback((ticketId: number, e: React.MouseEvent, ticket?: TicketSummary, completeTimer?: () => void): void => {
     e.stopPropagation();
     e.preventDefault();
+
+    // If a confirmation is already open, ignore all further clicks
+    if (confirmOpenRef.current) return;
+
     const t = ticket ?? allTickets.find((tk) => tk.id === ticketId);
     const isOwnTicket = t?.assignedToId === user?.id;
 
     if (!isOwnTicket && t) {
-      // Show confirmation before resolving someone else's ticket.
-      // IMPORTANT: completeTimer must NOT be called until the user explicitly
-      // clicks "Yes, Resolve". It is only called inside proceed after API success.
+      // Store completeTimer in a ref — it will ONLY be read inside the
+      // explicit confirm handler, never on cancel or outside click.
+      pendingCompleteTimerRef.current = completeTimer ?? null;
+      confirmOpenRef.current = true;
+
       setConfirmResolve({
         ticketId,
         ticketNumber: t.ticketNumber,
         assigneeName: t.assignedToName ?? null,
         proceed: () => {
+          // Grab the stored callback and clear refs BEFORE any async work
+          const cb = pendingCompleteTimerRef.current;
+          pendingCompleteTimerRef.current = null;
+          confirmOpenRef.current = false;
           setConfirmResolve(null);
-          void executeResolve(ticketId, completeTimer);
+          void executeResolve(ticketId, cb ?? undefined);
         },
       });
       return;
     }
 
-    // Own ticket — no confirmation needed, execute immediately
+    // Own ticket — no confirmation needed
     void executeResolve(ticketId, completeTimer);
   }, [user, allTickets, executeResolve]);
 
@@ -733,7 +748,12 @@ function TicketListPage(): React.ReactElement {
           ticketNumber={confirmResolve.ticketNumber}
           assigneeName={confirmResolve.assigneeName}
           onConfirm={confirmResolve.proceed}
-          onCancel={() => { setConfirmResolve(null); }}
+          onCancel={() => {
+            // Cancel: clear refs — completeTimer is intentionally NOT called
+            pendingCompleteTimerRef.current = null;
+            confirmOpenRef.current = false;
+            setConfirmResolve(null);
+          }}
         />,
         document.body
       )}
