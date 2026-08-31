@@ -11,6 +11,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../../hooks/system-hooks/useAuth';
 import { createTicket, uploadAttachments } from '../../services/client-api-services/ticket.service';
 import { listUsers } from '../../services/admin-api-services/user.service';
+import { listKBArticles } from '../../services/admin-api-services/kb.service';
+import type { KBArticle } from '../../services/admin-api-services/kb.service';
 import type { ApiError } from '../../config/api.config';
 import type { SafeUser } from '../../services/system-api-services/auth.service';
 import type { TicketDetail } from '../../services/system-api-services/ticket.service';
@@ -142,9 +144,14 @@ function CreateTicketModal({ onClose, onCreated }: CreateTicketModalProps): Reac
   const [assignedToId, setAssignedToId] = useState<string>('');
   const [usedKnowledgeBase, setUsedKnowledgeBase] = useState<boolean>(false);
 
-  // Employee list (admin only)
+  // Employee list (admin only) — includes current admin so "Assign to me" works
   const [employees, setEmployees] = useState<SafeUser[]>([]);
   const [isLoadingEmployees, setIsLoadingEmployees] = useState<boolean>(false);
+
+  // KB articles — loaded when KB checkbox is ticked
+  const [kbArticles, setKbArticles] = useState<KBArticle[]>([]);
+  const [isLoadingKb, setIsLoadingKb] = useState<boolean>(false);
+  const [selectedKbId, setSelectedKbId] = useState<number | ''>('');
 
   // Submit state
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -166,11 +173,32 @@ function CreateTicketModal({ onClose, onCreated }: CreateTicketModalProps): Reac
     let cancelled = false;
     setIsLoadingEmployees(true);
     listUsers({ role: 'EMPLOYEE', isActive: true, limit: 100 })
-      .then((r) => { if (!cancelled) setEmployees(r.data); })
+      .then((r) => {
+        if (!cancelled) {
+          // Ensure the current admin user appears in the list so "Assign to me" works
+          const list = r.data;
+          if (user && !list.find((e) => e.id === user.id)) {
+            list.unshift({ id: user.id, fullName: user.fullName, email: '', role: 'ADMIN', isActive: true, employeeId: null, createdAt: '', updatedAt: '' } as SafeUser);
+          }
+          setEmployees(list);
+        }
+      })
       .catch(() => { if (!cancelled) setEmployees([]); })
       .finally(() => { if (!cancelled) setIsLoadingEmployees(false); });
     return () => { cancelled = true; };
-  }, [isAdmin]);
+  }, [isAdmin, user]);
+
+  // Load KB articles when the KB checkbox is first ticked
+  useEffect(() => {
+    if (!usedKnowledgeBase || kbArticles.length > 0) return;
+    let cancelled = false;
+    setIsLoadingKb(true);
+    listKBArticles()
+      .then((data) => { if (!cancelled) setKbArticles(data); })
+      .catch(() => { if (!cancelled) setKbArticles([]); })
+      .finally(() => { if (!cancelled) setIsLoadingKb(false); });
+    return () => { cancelled = true; };
+  }, [usedKnowledgeBase, kbArticles.length]);
 
   const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
   const MAX_FILES = 5;
@@ -246,8 +274,11 @@ function CreateTicketModal({ onClose, onCreated }: CreateTicketModalProps): Reac
     setIsSubmitting(true);
     try {
       const resolvedTitle = extId; // title is the external ticket ID itself
+      const selectedKbTitle = selectedKbId !== ''
+        ? kbArticles.find((k) => k.id === selectedKbId)?.title ?? ''
+        : '';
       const resolvedDescription =
-        `${description.trim()}\n\n---\nExternal Reference: ${extId}\nDate: ${formatDisplayDate(ticketDate)}\nPriority: ${priorityLabel}`;
+        `${description.trim()}\n\n---\nExternal Reference: ${extId}\nDate: ${formatDisplayDate(ticketDate)}\nPriority: ${priorityLabel}${selectedKbTitle ? `\nKB Article Used: ${selectedKbTitle}` : ''}`;
 
       const dto = {
         title: resolvedTitle,
@@ -591,23 +622,69 @@ function CreateTicketModal({ onClose, onCreated }: CreateTicketModalProps): Reac
           </div>
 
           {/* Knowledge Base */}
-          <div className="flex items-start gap-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
-            <input
-              id="ct-kb"
-              type="checkbox"
-              checked={usedKnowledgeBase}
-              onChange={(e) => { setUsedKnowledgeBase(e.target.checked); }}
-              disabled={isSubmitting}
-              className="mt-0.5 h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-500 cursor-pointer disabled:cursor-not-allowed"
-            />
-            <div>
-              <label htmlFor="ct-kb" className="text-sm font-medium text-gray-700 cursor-pointer select-none">
-                Resolved using Knowledge Base (KB)
-              </label>
-              <p className="text-xs text-gray-400 mt-0.5">
-                Check this if you used an existing KB article to resolve the issue.
-              </p>
+          <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 space-y-3">
+            <div className="flex items-start gap-3">
+              <input
+                id="ct-kb"
+                type="checkbox"
+                checked={usedKnowledgeBase}
+                onChange={(e) => {
+                  setUsedKnowledgeBase(e.target.checked);
+                  if (!e.target.checked) setSelectedKbId('');
+                }}
+                disabled={isSubmitting}
+                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-500 cursor-pointer disabled:cursor-not-allowed"
+              />
+              <div>
+                <label htmlFor="ct-kb" className="text-sm font-medium text-gray-700 cursor-pointer select-none">
+                  Resolved using Knowledge Base (KB)
+                </label>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  Check this if you used an existing KB article to resolve the issue.
+                </p>
+              </div>
             </div>
+
+            {/* KB article selector — shown only when checkbox is ticked */}
+            {usedKnowledgeBase && (
+              <div>
+                <label htmlFor="ct-kb-article" className="block text-xs font-medium text-gray-600 mb-1">
+                  Select KB Article <span className="text-gray-400 font-normal">(optional)</span>
+                </label>
+                <select
+                  id="ct-kb-article"
+                  value={selectedKbId}
+                  onChange={(e) => { setSelectedKbId(e.target.value === '' ? '' : Number(e.target.value)); }}
+                  disabled={isSubmitting || isLoadingKb}
+                  className={`${inputBase} ${inputNormal} text-sm`}
+                >
+                  <option value="">
+                    {isLoadingKb ? 'Loading KB articles…' : kbArticles.length === 0 ? 'No KB articles available' : 'Select a KB article…'}
+                  </option>
+                  {kbArticles.map((kb) => (
+                    <option key={kb.id} value={kb.id}>
+                      {kb.title} — {kb.originalName}
+                    </option>
+                  ))}
+                </select>
+                {selectedKbId !== '' && (() => {
+                  const article = kbArticles.find((k) => k.id === selectedKbId);
+                  return article ? (
+                    <a
+                      href={article.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-1.5 inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                      Preview / Download
+                    </a>
+                  ) : null;
+                })()}
+              </div>
+            )}
           </div>
 
           {/* Actions */}

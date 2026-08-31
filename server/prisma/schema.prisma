@@ -49,6 +49,7 @@ model User {
   comments        TicketComment[]
   activities      TicketActivity[]
   uploadedAttachments TicketAttachment[]
+  knowledgeBaseUploads KnowledgeBase[]
 
   @@map("users")
 }
@@ -132,4 +133,20 @@ model TicketAttachment {
 
   @@index([ticketId])
   @@map("ticket_attachments")
+}
+
+model KnowledgeBase {
+  id           Int      @id @default(autoincrement())
+  title        String   @db.VarChar(255)
+  filename     String   @db.VarChar(255)
+  originalName String   @map("original_name") @db.VarChar(255)
+  fileType     String   @map("file_type") @db.VarChar(100)
+  url          String   @db.VarChar(500)
+  uploadedById Int      @map("uploaded_by_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  uploadedBy User @relation(fields: [uploadedById], references: [id])
+
+  @@index([uploadedById])
+  @@map("knowledge_base")
 }
