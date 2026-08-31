@@ -52,7 +52,7 @@ export async function getSummary(actorId: number): Promise<DashboardSummary> {
       prisma.ticket.count({
         where: {
           status: "RESOLVED",
-          title: { startsWith: "INC", mode: "insensitive" },
+          title: { startsWith: "INC" },
         },
       }),
       // Closed = SCTASK/RITM tickets (auto-closed on resolve)
