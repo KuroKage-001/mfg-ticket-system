@@ -154,7 +154,7 @@ function ActivityFeed({ activities }: ActivityFeedProps): React.ReactElement {
   return (
     <ol className="relative space-y-0">
       {/* Vertical timeline line */}
-      <div className="absolute left-[7px] top-2 bottom-2 w-px bg-gray-100" aria-hidden="true" />
+      <div className="absolute left-1.75 top-2 bottom-2 w-px bg-gray-100" aria-hidden="true" />
 
       {activities.map((entry) => {
         const dotClass = DOT_CLASS[entry.action] ?? 'bg-gray-400';
