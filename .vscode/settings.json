@@ -1,0 +1,18 @@
+{
+    "git.ignoreLimitWarning": true,
+    "git.countBadge": "tracked",
+    "files.watcherExclude": {
+        "**/node_modules/**": true,
+        "**/dist/**": true,
+        "**/.git/objects/**": true,
+        "**/.git/subtree-cache/**": true
+    },
+    "files.exclude": {
+        "**/node_modules": true,
+        "**/dist": true
+    },
+    "search.exclude": {
+        "**/node_modules": true,
+        "**/dist": true
+    }
+}

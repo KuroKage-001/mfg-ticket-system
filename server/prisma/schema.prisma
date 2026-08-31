@@ -1,0 +1,135 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  EMPLOYEE
+}
+
+enum ContactMethod {
+  EMAIL
+  PHONE
+  TEAMS
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum Status {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+  CANCELLED
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  employeeId   String?  @unique @map("employee_id") @db.VarChar(50)
+  fullName     String   @map("full_name") @db.VarChar(100)
+  email        String   @unique @db.VarChar(191)
+  passwordHash String   @map("password_hash") @db.VarChar(255)
+  role         Role     @default(EMPLOYEE)
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  createdTickets  Ticket[]           @relation("CreatedBy")
+  assignedTickets Ticket[]           @relation("AssignedTo")
+  comments        TicketComment[]
+  activities      TicketActivity[]
+  uploadedAttachments TicketAttachment[]
+
+  @@map("users")
+}
+
+model Ticket {
+  id                  Int       @id @default(autoincrement())
+  ticketNumber        String    @unique @map("ticket_number") @db.VarChar(30)
+  title               String    @db.VarChar(200)
+  description         String    @db.Text
+  category            String    @db.VarChar(100)
+  priority            Priority  @default(MEDIUM)
+  status              Status    @default(OPEN)
+  usedKnowledgeBase   Boolean        @default(false) @map("used_knowledge_base")
+  contactMethod       ContactMethod? @map("contact_method")
+  createdById         Int            @map("created_by_id")
+  assignedToId        Int?      @map("assigned_to_id")
+  resolvedAt          DateTime? @map("resolved_at")
+  closedAt            DateTime? @map("closed_at")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  createdBy  User            @relation("CreatedBy", fields: [createdById], references: [id])
+  assignedTo User?           @relation("AssignedTo", fields: [assignedToId], references: [id])
+  comments   TicketComment[]
+  activities TicketActivity[]
+  attachments TicketAttachment[]
+
+  @@index([status])
+  @@index([priority])
+  @@index([createdById])
+  @@index([assignedToId])
+  @@index([createdAt])
+  @@map("tickets")
+}
+
+model TicketComment {
+  id        Int      @id @default(autoincrement())
+  content   String   @db.Text
+  ticketId  Int      @map("ticket_id")
+  authorId  Int      @map("author_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author User   @relation(fields: [authorId], references: [id])
+
+  @@index([ticketId])
+  @@index([authorId])
+  @@map("ticket_comments")
+}
+
+model TicketActivity {
+  id        Int      @id @default(autoincrement())
+  action    String   @db.VarChar(100)
+  oldValue  String?  @map("old_value") @db.Text
+  newValue  String?  @map("new_value") @db.Text
+  ticketId  Int      @map("ticket_id")
+  actorId   Int      @map("actor_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  actor  User   @relation(fields: [actorId], references: [id])
+
+  @@index([ticketId])
+  @@index([actorId])
+  @@map("ticket_activities")
+}
+
+model TicketAttachment {
+  id           Int      @id @default(autoincrement())
+  ticketId     Int      @map("ticket_id")
+  filename     String   @db.VarChar(255)
+  originalName String   @map("original_name") @db.VarChar(255)
+  mimeType     String   @map("mime_type") @db.VarChar(100)
+  sizeBytes    Int      @map("size_bytes")
+  url          String   @db.VarChar(500)
+  uploadedById Int      @map("uploaded_by_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  ticket     Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  uploadedBy User   @relation(fields: [uploadedById], references: [id])
+
+  @@index([ticketId])
+  @@map("ticket_attachments")
+}
