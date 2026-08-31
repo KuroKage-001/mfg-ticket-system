@@ -4,7 +4,8 @@
  * handling and error normalisation.
  */
 
-export const BASE_URL = 'http://localhost:3000/api';
+export const BASE_URL: string =
+  import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api';
 
 /** Shape of the error thrown by `apiFetch` on non-2xx responses. */
 export interface ApiError {

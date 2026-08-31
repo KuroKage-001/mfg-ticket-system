@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import type { ApiError } from '../config/api.config';
+import { BASE_URL } from '../config/api.config';
 
 export interface SessionUser {
   id: number;
@@ -37,7 +38,7 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
   useEffect(() => {
     const initializeAuth = async () => {
       try {
-        const response = await fetch('http://localhost:3000/api/auth/me', {
+        const response = await fetch(`${BASE_URL}/auth/me`, {
           method: 'GET',
           credentials: 'include',
         });
@@ -61,7 +62,7 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
   }, []);
 
   const login = async (email: string, password: string): Promise<void> => {
-    const response = await fetch('http://localhost:3000/api/auth/login', {
+    const response = await fetch(`${BASE_URL}/auth/login`, {
       method: 'POST',
       credentials: 'include',
       headers: {
@@ -89,7 +90,7 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
 
   const logout = async (): Promise<void> => {
     try {
-      await fetch('http://localhost:3000/api/auth/logout', {
+      await fetch(`${BASE_URL}/auth/logout`, {
         method: 'POST',
         credentials: 'include',
       });

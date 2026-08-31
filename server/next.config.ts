@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
-const ALLOWED_ORIGIN = "http://localhost:5173";
+const ALLOWED_ORIGIN =
+  process.env.ALLOWED_ORIGIN ?? "http://localhost:5173";
 
 const corsHeaders = [
   { key: "Access-Control-Allow-Origin", value: ALLOWED_ORIGIN },

@@ -24,6 +24,9 @@
 .DS_Store
 *.pem
 
+# uploaded files (now stored on Cloudinary in production)
+/public/uploads/
+
 # debug
 npm-debug.log*
 yarn-debug.log*
