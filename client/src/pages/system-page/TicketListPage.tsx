@@ -14,6 +14,7 @@
  */
 
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/system-hooks/useAuth';
 import { useTickets } from '../../hooks/system-hooks/useTickets';
@@ -356,12 +357,14 @@ function TicketListPage(): React.ReactElement {
   // only invoke it after confirmation (if needed) and after the API succeeds.
   const handleInlineResolve = useCallback((ticketId: number, e: React.MouseEvent, ticket?: TicketSummary, completeTimer?: () => void): void => {
     e.stopPropagation();
+    e.preventDefault();
     const t = ticket ?? allTickets.find((tk) => tk.id === ticketId);
     const isOwnTicket = t?.assignedToId === user?.id;
 
     if (!isOwnTicket && t) {
       // Show confirmation before resolving someone else's ticket.
-      // completeTimer is called inside proceed — only on explicit confirm.
+      // IMPORTANT: completeTimer must NOT be called until the user explicitly
+      // clicks "Yes, Resolve". It is only called inside proceed after API success.
       setConfirmResolve({
         ticketId,
         ticketNumber: t.ticketNumber,
@@ -374,6 +377,7 @@ function TicketListPage(): React.ReactElement {
       return;
     }
 
+    // Own ticket — no confirmation needed, execute immediately
     void executeResolve(ticketId, completeTimer);
   }, [user, allTickets, executeResolve]);
 
@@ -723,14 +727,15 @@ function TicketListPage(): React.ReactElement {
         </div>
       )}
 
-      {/* Confirm-resolve dialog — shown when resolving a ticket not assigned to the current user */}
-      {confirmResolve !== null && (
+      {/* Confirm-resolve dialog — rendered in a portal so clicks can't leak to table rows */}
+      {confirmResolve !== null && createPortal(
         <ConfirmResolveModal
           ticketNumber={confirmResolve.ticketNumber}
           assigneeName={confirmResolve.assigneeName}
           onConfirm={confirmResolve.proceed}
           onCancel={() => { setConfirmResolve(null); }}
-        />
+        />,
+        document.body
       )}
 
       {/* Inline resolve error */}
