@@ -11,7 +11,8 @@ export interface TransitionContext {
 const ADMIN_TRANSITIONS: Record<Status, Status[]> = {
   OPEN:        ["IN_PROGRESS", "RESOLVED", "CLOSED", "CANCELLED"],
   IN_PROGRESS: ["RESOLVED",   "CLOSED",   "CANCELLED"],
-  RESOLVED:    ["CLOSED",     "IN_PROGRESS"],
+  // RESOLVED is terminal for INC tickets — admin cannot close them
+  RESOLVED:    ["IN_PROGRESS"],
   CLOSED:      ["IN_PROGRESS"],
   CANCELLED:   ["IN_PROGRESS"],
 };

@@ -48,7 +48,14 @@ export async function getSummary(actorId: number): Promise<DashboardSummary> {
       // Req 11.1 — count by status
       prisma.ticket.count({ where: { status: "OPEN" } }),
       prisma.ticket.count({ where: { status: "IN_PROGRESS" } }),
-      prisma.ticket.count({ where: { status: "RESOLVED" } }),
+      // Resolved = INC* tickets only (SCTASK/RITM auto-close, never stay in RESOLVED)
+      prisma.ticket.count({
+        where: {
+          status: "RESOLVED",
+          title: { startsWith: "INC", mode: "insensitive" },
+        },
+      }),
+      // Closed = SCTASK/RITM tickets (auto-closed on resolve)
       prisma.ticket.count({ where: { status: "CLOSED" } }),
       prisma.ticket.count({ where: { status: "CANCELLED" } }),
 

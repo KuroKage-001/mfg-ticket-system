@@ -52,8 +52,8 @@ type ModalStatus = 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED' | 'URGENT' | '
 const STATUS_LABELS: Record<ModalStatus, string> = {
   OPEN: 'Open',
   IN_PROGRESS: 'In Progress',
-  RESOLVED: 'Resolved',
-  CLOSED: 'Closed',
+  RESOLVED: 'Resolved (INC)',
+  CLOSED: 'Closed (SCTASK/RITM)',
   URGENT: 'Urgent',
   UNASSIGNED: 'Unassigned',
   MY_ASSIGNED: 'My Assigned',
@@ -482,7 +482,7 @@ function DashboardPage(): React.ReactElement {
     },
     {
       cardKey: 'Resolved',
-      label: 'Resolved',
+      label: 'Resolved (INC)',
       value: summary.resolved,
       accent: 'text-emerald-600',
       iconBg: 'bg-emerald-50',
@@ -491,7 +491,7 @@ function DashboardPage(): React.ReactElement {
     },
     {
       cardKey: 'Closed',
-      label: 'Closed',
+      label: 'Closed (SCTASK/RITM)',
       value: summary.closed,
       accent: 'text-gray-600',
       iconBg: 'bg-gray-100',
