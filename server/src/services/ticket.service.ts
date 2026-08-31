@@ -612,18 +612,32 @@ export async function transitionStatus(
   }
 
   // ── Build update payload ─────────────────────────────────────────────────────
-  const data: Prisma.TicketUpdateInput = { status: newStatus };
+  // Auto-upgrade RESOLVED → CLOSED for SCTASK and RITM tickets.
+  // These ticket types don't require a separate admin close step.
+  const titleUpper = ticket.title.trim().toUpperCase();
+  const isTaskOrRequest =
+    titleUpper.startsWith("SCTASK") || titleUpper.startsWith("RITM");
 
-  if (newStatus === "RESOLVED") {
+  const effectiveStatus =
+    newStatus === "RESOLVED" && isTaskOrRequest ? "CLOSED" : newStatus;
+
+  const data: Prisma.TicketUpdateInput = { status: effectiveStatus };
+
+  if (effectiveStatus === "RESOLVED") {
     data.resolvedAt = new Date();
   }
 
-  if (newStatus === "CLOSED") {
+  if (effectiveStatus === "CLOSED") {
+    // For auto-upgraded SCTASK/RITM tickets set both timestamps so the
+    // closed requests charts and the resolved date field both populate.
+    if (isTaskOrRequest && newStatus === "RESOLVED") {
+      data.resolvedAt = new Date();
+    }
     data.closedAt = new Date();
   }
 
   // Reopening clears both resolved and closed timestamps
-  if (newStatus === "IN_PROGRESS") {
+  if (effectiveStatus === "IN_PROGRESS") {
     data.resolvedAt = null;
     data.closedAt   = null;
   }
@@ -651,7 +665,7 @@ export async function transitionStatus(
   await ActivityLogger.log({
     action: ActivityAction.STATUS_CHANGED,
     oldValue: currentStatus,
-    newValue: newStatus,
+    newValue: effectiveStatus,
     ticketId: id,
     actorId: actor.id,
   });

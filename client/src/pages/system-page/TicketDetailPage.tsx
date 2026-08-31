@@ -284,15 +284,15 @@ function TicketDetailPage(): React.ReactElement {
    * timer's local completion state.
    *
    * ADMINs:     TASK/RITM → CLOSED, everything else → RESOLVED
-   * EMPLOYEEs:  TASK/RITM → CLOSED, INC → RESOLVED
+   * EMPLOYEEs:  always sends RESOLVED; server auto-upgrades SCTASK/RITM to CLOSED
    */
   const handleTimerComplete = useCallback(async (): Promise<void> => {
     if (!ticket) return;
     if (ticket.status === 'RESOLVED' || ticket.status === 'CLOSED' || ticket.status === 'CANCELLED') return;
     setTimerError('');
     try {
-      const targetStatus = (timerTicketType === 'TASK' || timerTicketType === 'REQUEST') ? 'CLOSED' : 'RESOLVED';
-      await transitionStatus(ticket.id, targetStatus);
+      // Always send RESOLVED — server auto-upgrades SCTASK/RITM to CLOSED.
+      await transitionStatus(ticket.id, 'RESOLVED');
       void refetch();
     } catch (err: unknown) {
       const apiErr = err as { message?: string };
