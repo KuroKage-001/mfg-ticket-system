@@ -27,6 +27,8 @@ export interface TicketSummary {
   createdById: number;
   createdAt: string;
   updatedAt: string;
+  resolvedAt: string | null;
+  closedAt: string | null;
 }
 
 /** A comment attached to a ticket. */

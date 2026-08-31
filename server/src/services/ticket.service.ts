@@ -336,6 +336,8 @@ export async function listTickets(
         },
         createdAt: true,
         updatedAt: true,
+        resolvedAt: true,
+        closedAt: true,
       },
     }),
     prisma.ticket.count({ where }),

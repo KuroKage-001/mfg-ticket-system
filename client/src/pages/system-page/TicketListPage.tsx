@@ -430,6 +430,10 @@ function TicketListPage(): React.ReactElement {
             <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Status</th>
             <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Priority</th>
             <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">KB</th>
+            <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Start Time</th>
+            <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+              {type === 'INCIDENT' ? 'Resolved Time' : 'Closed Time'}
+            </th>
             <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
               Timer
               <span className="ml-1 text-gray-400 font-normal normal-case">
@@ -441,12 +445,18 @@ function TicketListPage(): React.ReactElement {
         <tbody className="divide-y divide-gray-100 bg-white">
           {tickets.map((ticket) => {
             const record = timerRecords.get(ticket.id);
-            // externalId: timer record is authoritative; fall back to the ticket title
-            // which is stored as the raw external ID (e.g. "INC1278770").
             const externalId = record?.externalId || ticket.title;
-            // Strip any legacy "[INC1278770] " bracket prefix for the clean title display.
             const titleMatch = /^\[([A-Z0-9]+)\]\s*/i.exec(ticket.title);
             const cleanTitle = titleMatch ? ticket.title.replace(titleMatch[0], '') : ticket.title;
+
+            const startTime = ticket.createdAt
+              ? new Date(ticket.createdAt).toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+              : '—';
+
+            const endTimeRaw = type === 'INCIDENT' ? ticket.resolvedAt : ticket.closedAt;
+            const endTime = endTimeRaw
+              ? new Date(endTimeRaw).toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+              : '—';
 
             return (
               <tr
@@ -482,6 +492,8 @@ function TicketListPage(): React.ReactElement {
                     <span className="text-xs text-gray-300">—</span>
                   )}
                 </td>
+                <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-500">{startTime}</td>
+                <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-500">{endTime}</td>
                 <td className="whitespace-nowrap px-4 py-3" onClick={(e) => e.stopPropagation()}>
                   <TimerCell
                     ticket={ticket}

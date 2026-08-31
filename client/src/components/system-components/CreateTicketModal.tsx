@@ -594,7 +594,9 @@ function CreateTicketModal({ onClose, onCreated }: CreateTicketModalProps): Reac
               >
                 <option value="">{isLoadingEmployees ? 'Loading employees…' : 'Unassigned'}</option>
                 {employees.map((emp) => (
-                  <option key={emp.id} value={emp.id}>{emp.fullName} ({emp.email})</option>
+                  <option key={emp.id} value={emp.id}>
+                    {emp.fullName}{emp.email ? ` (${emp.email})` : ''}
+                  </option>
                 ))}
               </select>
             ) : (

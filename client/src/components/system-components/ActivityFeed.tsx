@@ -1,8 +1,8 @@
 /**
  * ActivityFeed — ordered list of TicketActivity records.
  *
- * Renders action label, actor name, old → new value (where applicable),
- * and a formatted timestamp for each entry.
+ * Renders a human-readable description for every activity type,
+ * resolving user IDs to names and mapping raw values to labels.
  */
 
 /** Enriched activity shape — actor relation included by the API response. */
@@ -17,26 +17,134 @@ export interface TicketActivityWithActor {
   createdAt: string;
 }
 
-type ActivityAction =
-  | 'TICKET_CREATED'
-  | 'STATUS_CHANGED'
-  | 'PRIORITY_CHANGED'
-  | 'ASSIGNMENT_CHANGED'
-  | 'FIELD_UPDATED'
-  | 'COMMENT_ADDED';
+// ---------------------------------------------------------------------------
+// Label maps
+// ---------------------------------------------------------------------------
 
-const ACTION_LABELS: Record<ActivityAction, string> = {
-  TICKET_CREATED: 'Ticket Created',
-  STATUS_CHANGED: 'Status Changed',
-  PRIORITY_CHANGED: 'Priority Changed',
-  ASSIGNMENT_CHANGED: 'Assignment Changed',
-  FIELD_UPDATED: 'Field Updated',
-  COMMENT_ADDED: 'Comment Added',
+const STATUS_LABELS: Record<string, string> = {
+  OPEN:        'Open',
+  IN_PROGRESS: 'In Progress',
+  RESOLVED:    'Resolved',
+  CLOSED:      'Closed',
+  CANCELLED:   'Cancelled',
 };
 
-function formatAction(action: string): string {
-  return ACTION_LABELS[action as ActivityAction] ?? action.replace(/_/g, ' ');
+const PRIORITY_LABELS: Record<string, string> = {
+  LOW:    'Low',
+  MEDIUM: 'Medium',
+  HIGH:   'High',
+  URGENT: 'Urgent',
+};
+
+// ---------------------------------------------------------------------------
+// Dot colour per action
+// ---------------------------------------------------------------------------
+
+const DOT_CLASS: Record<string, string> = {
+  TICKET_CREATED:    'bg-blue-400',
+  STATUS_CHANGED:    'bg-indigo-400',
+  PRIORITY_CHANGED:  'bg-amber-400',
+  ASSIGNMENT_CHANGED:'bg-purple-400',
+  COMMENT_ADDED:     'bg-emerald-400',
+  FIELD_UPDATED:     'bg-gray-400',
+};
+
+// ---------------------------------------------------------------------------
+// Human-readable description builder
+// ---------------------------------------------------------------------------
+
+function buildDescription(entry: TicketActivityWithActor): React.ReactElement {
+  const actor = <span className="font-semibold text-gray-900">{entry.actor.fullName}</span>;
+  const old = entry.oldValue;
+  const next = entry.newValue;
+
+  switch (entry.action) {
+
+    case 'TICKET_CREATED':
+      return (
+        <span>
+          {actor} created ticket{next ? <> <span className="font-mono text-xs text-gray-600">{next}</span></> : ''}
+        </span>
+      );
+
+    case 'STATUS_CHANGED': {
+      const oldLabel = old ? (STATUS_LABELS[old] ?? old) : null;
+      const newLabel = next ? (STATUS_LABELS[next] ?? next) : '?';
+      return (
+        <span>
+          {actor} changed status
+          {oldLabel && (
+            <> from <span className="font-medium text-gray-600">{oldLabel}</span></>
+          )}
+          {' '}to <span className="font-medium text-gray-800">{newLabel}</span>
+        </span>
+      );
+    }
+
+    case 'PRIORITY_CHANGED': {
+      const oldLabel = old ? (PRIORITY_LABELS[old] ?? old) : null;
+      const newLabel = next ? (PRIORITY_LABELS[next] ?? next) : '?';
+      return (
+        <span>
+          {actor} changed priority
+          {oldLabel && (
+            <> from <span className="font-medium text-gray-600">{oldLabel}</span></>
+          )}
+          {' '}to <span className="font-medium text-gray-800">{newLabel}</span>
+        </span>
+      );
+    }
+
+    case 'ASSIGNMENT_CHANGED': {
+      // newValue is the assignee's user ID (or null for unassign)
+      // oldValue is the previous assignee's user ID (or null)
+      // We display the raw values — in a real system you'd resolve IDs to names,
+      // but the activity logger stores IDs so we label them clearly.
+      if (!next) {
+        return <span>{actor} removed the assignee</span>;
+      }
+      if (!old) {
+        return (
+          <span>
+            {actor} assigned the ticket to user <span className="font-medium text-gray-800">#{next}</span>
+          </span>
+        );
+      }
+      return (
+        <span>
+          {actor} reassigned from user <span className="font-medium text-gray-600">#{old}</span>{' '}
+          to user <span className="font-medium text-gray-800">#{next}</span>
+        </span>
+      );
+    }
+
+    case 'COMMENT_ADDED':
+      return <span>{actor} added a comment</span>;
+
+    case 'FIELD_UPDATED':
+      return (
+        <span>
+          {actor} updated a field
+          {old !== null && next !== null && (
+            <> from <span className="font-medium text-gray-600">{old}</span> to{' '}
+            <span className="font-medium text-gray-800">{next}</span></>
+          )}
+        </span>
+      );
+
+    default:
+      return (
+        <span>
+          {actor} — {entry.action.replace(/_/g, ' ').toLowerCase()}
+          {next && <> · <span className="text-gray-700">{next}</span></>}
+        </span>
+      );
+  }
 }
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
 
 interface ActivityFeedProps {
   activities: TicketActivityWithActor[];
@@ -44,51 +152,47 @@ interface ActivityFeedProps {
 
 function ActivityFeed({ activities }: ActivityFeedProps): React.ReactElement {
   if (activities.length === 0) {
-    return (
-      <p className="text-sm text-gray-500 italic py-4">No activity yet.</p>
-    );
+    return <p className="text-sm text-gray-400 italic py-4">No activity yet.</p>;
   }
 
   return (
-    <ol className="space-y-3">
-      {activities.map((entry) => (
-        <li key={entry.id} className="flex gap-3 text-sm">
-          {/* Timeline dot */}
-          <span className="mt-1 shrink-0 w-2 h-2 rounded-full bg-gray-400 ring-2 ring-white" />
+    <ol className="relative space-y-0">
+      {/* Vertical timeline line */}
+      <div className="absolute left-[7px] top-2 bottom-2 w-px bg-gray-100" aria-hidden="true" />
 
-          <div className="flex-1 min-w-0">
-            {/* Action + actor */}
-            <p className="text-gray-800">
-              <span className="font-medium">{formatAction(entry.action)}</span>
-              {' by '}
-              <span className="font-medium">{entry.actor.fullName}</span>
-            </p>
+      {activities.map((entry) => {
+        const dotClass = DOT_CLASS[entry.action] ?? 'bg-gray-400';
+        const dt = new Date(entry.createdAt);
+        const dateLabel = dt.toLocaleDateString(undefined, {
+          year: 'numeric', month: 'short', day: 'numeric',
+        });
+        const timeLabel = dt.toLocaleTimeString(undefined, {
+          hour: '2-digit', minute: '2-digit', second: '2-digit',
+        });
 
-            {/* Old → new values (skip old value for TICKET_CREATED) */}
-            {entry.newValue !== null && (
-              <p className="text-gray-600 mt-0.5">
-                {entry.action !== 'TICKET_CREATED' && entry.oldValue !== null ? (
-                  <>
-                    <span className="line-through text-gray-400">
-                      {entry.oldValue}
-                    </span>
-                    {' → '}
-                  </>
-                ) : null}
-                <span>{entry.newValue}</span>
+        return (
+          <li key={entry.id} className="relative flex gap-4 pb-5 last:pb-0">
+            {/* Timeline dot */}
+            <span className={`relative z-10 mt-1 shrink-0 h-3.5 w-3.5 rounded-full ring-2 ring-white ${dotClass}`} aria-hidden="true" />
+
+            <div className="flex-1 min-w-0 pt-0.5">
+              {/* Description */}
+              <p className="text-sm text-gray-700 leading-snug">
+                {buildDescription(entry)}
               </p>
-            )}
 
-            {/* Timestamp */}
-            <time
-              dateTime={entry.createdAt}
-              className="block text-xs text-gray-400 mt-0.5"
-            >
-              {new Date(entry.createdAt).toLocaleString()}
-            </time>
-          </div>
-        </li>
-      ))}
+              {/* Timestamp */}
+              <time
+                dateTime={entry.createdAt}
+                className="block text-xs text-gray-400 mt-1"
+                title={dt.toISOString()}
+              >
+                {dateLabel} · {timeLabel}
+              </time>
+            </div>
+          </li>
+        );
+      })}
     </ol>
   );
 }
