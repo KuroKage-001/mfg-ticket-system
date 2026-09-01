@@ -227,7 +227,7 @@ interface TimerCellProps {
 }
 
 function TimerCell({ ticket, externalId, compact, onCompleteIntent, onStarted }: TimerCellProps): React.ReactElement {
-  const { startedAt, start, complete, reset } = useTicketTimer(ticket.id);
+  const { startedAt, completedAt, start, complete, reset } = useTicketTimer(ticket.id);
   const isStartingRef = useRef(false);
   const [starting, setStarting] = useState(false);
 
@@ -240,6 +240,23 @@ function TimerCell({ ticket, externalId, compact, onCompleteIntent, onStarted }:
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ticket.status, startedAt]);
+
+  // Auto-complete the local timer when the server confirms the ticket is
+  // terminal (RESOLVED / CLOSED / CANCELLED) but the localStorage record
+  // is still running (completedAt === null). This handles the case where
+  // the user resolves/closes from the confirm modal and the API succeeds but
+  // the completeTimer callback wasn't invoked (e.g. page refresh, or the
+  // ticket was closed externally).
+  useEffect(() => {
+    const isTerminal =
+      ticket.status === 'RESOLVED' ||
+      ticket.status === 'CLOSED' ||
+      ticket.status === 'CANCELLED';
+    if (isTerminal && startedAt !== null && completedAt === null && !isStartingRef.current) {
+      complete();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ticket.status, startedAt, completedAt]);
 
   // Show Start button when:
   //  - ticket is OPEN and no timer has been started yet (normal first start)
@@ -519,8 +536,8 @@ function TicketListPage(): React.ReactElement {
   // ---------------------------------------------------------------------------
 
   const renderTypedTable = (tickets: TicketSummary[], type: TicketType): React.ReactElement => (
-    <div className="overflow-hidden rounded-lg border border-gray-200 shadow-sm">
-      <table className="min-w-full divide-y divide-gray-200">
+    <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
+      <table className="min-w-full divide-y divide-gray-200 whitespace-nowrap">
         <thead className="bg-gray-50">
           <tr>
             <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Ticket #</th>
@@ -619,8 +636,8 @@ function TicketListPage(): React.ReactElement {
   // ---------------------------------------------------------------------------
 
   const renderAllTable = (tickets: TicketSummary[]): React.ReactElement => (
-    <div className="overflow-hidden rounded-lg border border-gray-200 shadow-sm">
-      <table className="min-w-full divide-y divide-gray-200">
+    <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
+      <table className="min-w-full divide-y divide-gray-200 whitespace-nowrap">
         <thead className="bg-gray-50">
           <tr>
             <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Ticket #</th>
@@ -711,7 +728,7 @@ function TicketListPage(): React.ReactElement {
   // ---------------------------------------------------------------------------
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-[100rem] px-4 py-8 sm:px-6 lg:px-8">
 
       {/* Page header */}
       <div className="mb-6">
