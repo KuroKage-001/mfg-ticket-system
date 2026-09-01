@@ -211,7 +211,7 @@ function TicketDetailPage(): React.ReactElement {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const ticketIdNum = id ? Number(id) : 0;
-  const { completedAt: timerCompletedAt, ticketType: timerTicketType, complete: completeTimer, archiveAndReset: archiveAndResetTimer } = useTicketTimer(ticketIdNum);
+  const { completedAt: timerCompletedAt, startedAt: timerStartedAt, ticketType: timerTicketType, complete: completeTimer, archiveAndReset: archiveAndResetTimer } = useTicketTimer(ticketIdNum);
 
   // ------------------------------------------------------------------
   // Upload handlers
@@ -375,6 +375,24 @@ function TicketDetailPage(): React.ReactElement {
   }, [id]);
 
   // Fetch KB article linked to this ticket
+  // ------------------------------------------------------------------
+  // Auto-complete the local timer when the ticket is already in a terminal
+  // status but localStorage still has completedAt === null.
+  // This covers tickets resolved/closed in a previous session, from another
+  // page, or by another user — so the timer stops without needing a click.
+  // ------------------------------------------------------------------
+  useEffect(() => {
+    const isTerminal =
+      ticket?.status === 'RESOLVED' ||
+      ticket?.status === 'CLOSED' ||
+      ticket?.status === 'CANCELLED';
+    if (isTerminal && timerStartedAt !== null && timerCompletedAt === null) {
+      completeTimer();
+      setTimerKey((k) => k + 1);
+    }
+  // Run whenever the ticket status or the local timer state changes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ticket?.status, timerStartedAt, timerCompletedAt]);
   useEffect(() => {
     if (!ticket?.usedKnowledgeBase) { setKbArticle(null); return; }
     const match = /KB Article Used:\s*(.+)/i.exec(ticket.description);
