@@ -47,6 +47,7 @@ const DOT_CLASS: Record<string, string> = {
   ASSIGNMENT_CHANGED:'bg-purple-400',
   COMMENT_ADDED:     'bg-emerald-400',
   FIELD_UPDATED:     'bg-gray-400',
+  TICKET_REOPENED:   'bg-amber-500',
 };
 
 // ---------------------------------------------------------------------------
@@ -116,6 +117,34 @@ function buildDescription(entry: TicketActivityWithActor): React.ReactElement {
 
     case 'COMMENT_ADDED':
       return <span>{actor} added a comment</span>;
+
+    case 'TICKET_REOPENED': {
+      // oldValue = previous resolvedAt ISO, newValue = previous closedAt ISO
+      // Either or both may be null depending on the ticket lifecycle.
+      const prevResolved = old ? new Date(old).toLocaleString(undefined, {
+        year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+      }) : null;
+      const prevClosed = next ? new Date(next).toLocaleString(undefined, {
+        year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+      }) : null;
+      return (
+        <span>
+          {actor} reopened this ticket
+          {(prevResolved ?? prevClosed) && (
+            <span className="text-gray-500">
+              {' '}— previously{' '}
+              {prevResolved && (
+                <>resolved <span className="font-medium text-gray-700">{prevResolved}</span></>
+              )}
+              {prevResolved && prevClosed && ', '}
+              {prevClosed && (
+                <>closed <span className="font-medium text-gray-700">{prevClosed}</span></>
+              )}
+            </span>
+          )}
+        </span>
+      );
+    }
 
     case 'FIELD_UPDATED':
       // Notes from the resolve/close modal are stored as FIELD_UPDATED with

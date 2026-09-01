@@ -685,6 +685,24 @@ export async function transitionStatus(
     });
   }
 
+  // When reopening, preserve the previous terminal timestamps in the activity
+  // feed so history is never lost even after resolvedAt/closedAt are cleared.
+  // oldValue = previous resolvedAt ISO, newValue = previous closedAt ISO.
+  if (
+    effectiveStatus === "IN_PROGRESS" &&
+    (currentStatus === "RESOLVED" || currentStatus === "CLOSED" || currentStatus === "CANCELLED")
+  ) {
+    const prevResolvedAt = ticket.resolvedAt ? ticket.resolvedAt.toISOString() : null;
+    const prevClosedAt   = ticket.closedAt   ? ticket.closedAt.toISOString()   : null;
+    await ActivityLogger.log({
+      action: ActivityAction.TICKET_REOPENED,
+      oldValue: prevResolvedAt ?? prevClosedAt ?? null,
+      newValue: prevClosedAt ?? prevResolvedAt ?? null,
+      ticketId: id,
+      actorId: actor.id,
+    });
+  }
+
   // Log the optional caller-supplied note (e.g. which modal option was chosen)
   if (note && note.trim().length > 0) {
     await ActivityLogger.log({

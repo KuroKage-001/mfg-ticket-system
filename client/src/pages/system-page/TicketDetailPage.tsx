@@ -428,9 +428,10 @@ function TicketDetailPage(): React.ReactElement {
     setIsReopening(true);
     setReopenError('');
     try {
-      await transitionStatus(ticket.id, 'IN_PROGRESS');
-      // Archive previous timer data before clearing — keeps history intact
+      // Archive previous timer data before clearing — keeps history intact.
+      // Do this BEFORE the API call so if the call fails the archive is still safe.
       archiveAndResetTimer();
+      await transitionStatus(ticket.id, 'IN_PROGRESS', 'Ticket Reopened — new timer session started');
       void refetch();
     } catch (err: unknown) {
       const apiErr = err as { message?: string };
@@ -686,26 +687,45 @@ function TicketDetailPage(): React.ReactElement {
       {/* ------------------------------------------------------------------ */}
       {/* Description + Attachments                                           */}
       {/* ------------------------------------------------------------------ */}
-      <div className="mb-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-        <div className="flex items-start justify-between gap-4 mb-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+      <div className="mb-6 rounded-lg border border-gray-200 bg-white shadow-sm overflow-hidden">
+        {/* Section header */}
+        <div className="flex items-center gap-2 px-6 py-4 border-b border-gray-100 bg-gray-50/60">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          <h2 className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
             Remarks
           </h2>
         </div>
 
-        <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-800">
-          {ticket.description}
-        </p>
+        {/* Description body */}
+        <div className="px-6 py-5">
+          {ticket.description ? (
+            <p className="whitespace-pre-wrap text-sm leading-7 text-gray-700 font-normal">
+              {ticket.description}
+            </p>
+          ) : (
+            <p className="text-sm italic text-gray-400">No remarks provided.</p>
+          )}
+        </div>
 
         {/* Attachments — shown directly below the description text */}
         {attachments.length > 0 && (
-          <div className="mt-4 pt-4 border-t border-gray-100">
-            <p className="text-xs font-medium text-gray-500 mb-2">
-              Attachments <span className="text-gray-400 font-normal">({attachments.length})</span>
-            </p>
-            <div className="flex flex-wrap gap-3">
+          <div className="px-6 pb-6 pt-0">
+            <div className="border-t border-gray-100 mb-4" />
+            <div className="flex items-center gap-2 mb-3">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+              </svg>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                Attachments
+                <span className="ml-1.5 inline-flex items-center justify-center rounded-full bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-500">
+                  {attachments.length}
+                </span>
+              </p>
+            </div>
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
               {attachments.map((att) => {
-                // Cloudinary URLs are absolute (https://...), local uploads are relative paths
                 const imgSrc = att.url.startsWith('http') ? att.url : `${serverOrigin}${att.url}`;
                 return (
                   <a
@@ -713,20 +733,34 @@ function TicketDetailPage(): React.ReactElement {
                     href={imgSrc}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="group relative block w-24 h-24 shrink-0 rounded-lg overflow-hidden border border-gray-200 hover:border-blue-400 transition-colors"
+                    className="group relative block aspect-square rounded-xl overflow-hidden border border-gray-200 hover:border-blue-400 hover:shadow-md transition-all"
                     title={att.originalName}
                   >
                     <img
                       src={imgSrc}
                       alt={att.originalName}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
                       onError={(e) => {
                         (e.currentTarget as HTMLImageElement).style.display = 'none';
                       }}
                     />
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-end">
-                      <span className="w-full truncate bg-black/50 text-white text-xs px-1.5 py-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {/* Overlay on hover */}
+                    <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-2">
+                      <span className="text-white text-xs font-medium truncate leading-tight">
                         {att.originalName}
+                      </span>
+                      <span className="text-white/70 text-xs mt-0.5">
+                        {att.sizeBytes < 1024 * 1024
+                          ? `${Math.round(att.sizeBytes / 1024)} KB`
+                          : `${(att.sizeBytes / (1024 * 1024)).toFixed(1)} MB`}
+                      </span>
+                    </div>
+                    {/* Open icon badge */}
+                    <div className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <span className="flex items-center justify-center h-5 w-5 rounded-full bg-white/90 shadow">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
                       </span>
                     </div>
                   </a>

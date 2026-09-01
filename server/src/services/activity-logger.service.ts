@@ -11,6 +11,13 @@ export const ActivityAction = {
   ASSIGNMENT_CHANGED: "ASSIGNMENT_CHANGED",
   FIELD_UPDATED: "FIELD_UPDATED",
   COMMENT_ADDED: "COMMENT_ADDED",
+  /**
+   * Logged when a resolved/closed ticket is reopened (transitioned back to
+   * IN_PROGRESS).  oldValue carries the previous terminal timestamp
+   * (resolvedAt or closedAt as an ISO string) so the history is preserved
+   * in the activity feed without altering the database columns.
+   */
+  TICKET_REOPENED: "TICKET_REOPENED",
 } as const;
 
 export type ActivityAction = (typeof ActivityAction)[keyof typeof ActivityAction];
