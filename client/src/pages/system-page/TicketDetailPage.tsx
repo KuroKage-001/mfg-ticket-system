@@ -211,7 +211,7 @@ function TicketDetailPage(): React.ReactElement {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const ticketIdNum = id ? Number(id) : 0;
-  const { completedAt: timerCompletedAt, ticketType: timerTicketType, archiveAndReset: archiveAndResetTimer } = useTicketTimer(ticketIdNum);
+  const { completedAt: timerCompletedAt, ticketType: timerTicketType, complete: completeTimer, archiveAndReset: archiveAndResetTimer } = useTicketTimer(ticketIdNum);
 
   // ------------------------------------------------------------------
   // Upload handlers
@@ -311,16 +311,17 @@ function TicketDetailPage(): React.ReactElement {
     setTimerError('');
     try {
       await transitionStatus(ticket.id, 'RESOLVED');
-      // Await the refetch so ticket state is fresh before remounting the timer.
-      // The status badge, metadata, and showReopen all derive from ticket state,
-      // so they update in the same render cycle as the timerKey bump.
+      // Write completedAt to localStorage so the timer stops ticking.
+      // This is the missing step — TicketTimer.onComplete only signals intent;
+      // the caller is responsible for committing the local timer on API success.
+      completeTimer();
       await refetch();
       setTimerKey((k) => k + 1);
     } catch (err: unknown) {
       const apiErr = err as { message?: string };
       setTimerError(apiErr.message ?? 'Failed to update ticket status. Please use the Admin Actions panel.');
     }
-  }, [ticket, timerTicketType, refetch]);
+  }, [ticket, timerTicketType, completeTimer, refetch]);
 
   const handleTimerStart = useCallback(async (): Promise<void> => {
     if (!ticket) return;
