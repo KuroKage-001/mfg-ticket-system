@@ -311,9 +311,11 @@ function TicketDetailPage(): React.ReactElement {
     setTimerError('');
     try {
       await transitionStatus(ticket.id, 'RESOLVED');
-      // Bump timerKey so TicketTimer remounts and reads the new completedAt from localStorage
+      // Await the refetch so ticket state is fresh before remounting the timer.
+      // The status badge, metadata, and showReopen all derive from ticket state,
+      // so they update in the same render cycle as the timerKey bump.
+      await refetch();
       setTimerKey((k) => k + 1);
-      void refetch();
     } catch (err: unknown) {
       const apiErr = err as { message?: string };
       setTimerError(apiErr.message ?? 'Failed to update ticket status. Please use the Admin Actions panel.');
@@ -326,10 +328,11 @@ function TicketDetailPage(): React.ReactElement {
     try {
       if (ticket.status === 'OPEN') {
         await transitionStatus(ticket.id, 'IN_PROGRESS');
-        void refetch();
+        // Await refetch so status badge updates before timer remounts
+        await refetch();
       }
-      // IN_PROGRESS (after reopen): no server call needed — timer starts locally
-      // Bump timerKey so TicketTimer remounts and reflects the fresh localStorage state
+      // Bump timerKey so TicketTimer remounts with the cleared localStorage (after reopen)
+      // or picks up the fresh IN_PROGRESS status from refetch
       setTimerKey((k) => k + 1);
     } catch (err: unknown) {
       const apiErr = err as { message?: string };
@@ -393,7 +396,15 @@ function TicketDetailPage(): React.ReactElement {
   // Mutation callbacks
   // ------------------------------------------------------------------
 
-  const handleActionComplete = useCallback((_updatedTicket: TicketDetail): void => {
+  const handleActionComplete = useCallback((updatedTicket: TicketDetail): void => {
+    // Apply the returned ticket immediately so status badge, metadata, and
+    // canStartTimer / showReopen all update in this render cycle — no reload.
+    setTicket(updatedTicket);
+    setActivities(updatedTicket.activities as unknown as TicketActivityWithActor[]);
+    setComments(updatedTicket.comments as unknown as TicketCommentWithAuthor[]);
+    // Also bump timerKey so TicketTimer picks up any status-driven changes
+    setTimerKey((k) => k + 1);
+    // Background refetch for attachments and any other async updates
     void refetch();
   }, [refetch]);
 
@@ -408,9 +419,11 @@ function TicketDetailPage(): React.ReactElement {
     try {
       archiveAndResetTimer();
       await transitionStatus(ticket.id, 'IN_PROGRESS', 'Ticket Reopened — new timer session started');
-      // Bump timerKey so TicketTimer remounts and shows the fresh Start button
+      // Await refetch so ticket.status updates to IN_PROGRESS in state before
+      // the timer remounts — this ensures canStartTimer is true and showReopen
+      // is false in the same render, no page reload needed.
+      await refetch();
       setTimerKey((k) => k + 1);
-      void refetch();
     } catch (err: unknown) {
       const apiErr = err as { message?: string };
       setReopenError(apiErr.message ?? 'Failed to reopen ticket.');
