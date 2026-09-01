@@ -241,24 +241,29 @@ function TimerCell({ ticket, externalId, compact, onCompleteIntent, onStarted }:
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ticket.status, startedAt]);
 
-  const isOpenAndUnstarted = ticket.status === 'OPEN' && startedAt === null;
+  // Show Start button when:
+  //  - ticket is OPEN and no timer has been started yet (normal first start)
+  //  - ticket is IN_PROGRESS and no timer record exists (after a reopen)
+  const isStartable =
+    (ticket.status === 'OPEN' || ticket.status === 'IN_PROGRESS') && startedAt === null;
 
   const handleStart = useCallback(async (extId: string): Promise<void> => {
     isStartingRef.current = true;
     setStarting(true);
     try {
       start(extId);
-      await transitionStatus(ticket.id, 'IN_PROGRESS');
+      // Only transition OPEN→IN_PROGRESS; reopened tickets are already IN_PROGRESS
+      if (ticket.status === 'OPEN') {
+        await transitionStatus(ticket.id, 'IN_PROGRESS');
+      }
       onStarted();
     } catch {
       onStarted();
     } finally {
       setStarting(false);
-      // Keep the flag true for one more tick so the useEffect that runs after
-      // the re-render triggered by onStarted() doesn't see OPEN+startedAt.
       setTimeout(() => { isStartingRef.current = false; }, 0);
     }
-  }, [ticket.id, start, onStarted]);
+  }, [ticket.id, ticket.status, start, onStarted]);
 
   // Called by TicketTimer when the user clicks the action button (Resolve / Close / Mark Done).
   // We do NOT call complete() here — instead we pass a completeTimer callback to
@@ -276,7 +281,7 @@ function TimerCell({ ticket, externalId, compact, onCompleteIntent, onStarted }:
       ticketId={ticket.id}
       compact={compact}
       onComplete={handleCompleteIntent}
-      {...(isOpenAndUnstarted ? {
+      {...(isStartable ? {
         onStart: (extId) => { void handleStart(extId); },
         externalTicketId: externalId,
       } : {})}
@@ -528,6 +533,9 @@ function TicketListPage(): React.ReactElement {
               {type === 'INCIDENT' ? 'Resolved Time' : 'Closed Time'}
             </th>
             <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+              {type === 'INCIDENT' ? 'Resolved By' : 'Closed By'}
+            </th>
+            <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
               Timer
               <span className="ml-1 text-gray-400 font-normal normal-case">
                 ({type === 'INCIDENT' ? 'Resolve' : type === 'TASK' ? 'Close' : 'Done'})
@@ -582,6 +590,11 @@ function TicketListPage(): React.ReactElement {
                 </td>
                 <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-500">{startTime}</td>
                 <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-500">{endTime}</td>
+                <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-500">
+                  {type === 'INCIDENT'
+                    ? (ticket.resolvedByName ?? <span className="text-gray-300">—</span>)
+                    : (ticket.closedByName ?? <span className="text-gray-300">—</span>)}
+                </td>
                 <td className="whitespace-nowrap px-4 py-3" onClick={(e) => e.stopPropagation()}>
                   <TimerCell
                     ticket={ticket}
@@ -618,6 +631,7 @@ function TicketListPage(): React.ReactElement {
             <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Assignee</th>
             <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Start Time</th>
             <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Resolved/Closed Time</th>
+            <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Resolved/Closed By</th>
             <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Timer</th>
           </tr>
         </thead>
@@ -670,6 +684,9 @@ function TicketListPage(): React.ReactElement {
                 </td>
                 <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-500">{startTime}</td>
                 <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-500">{endTime}</td>
+                <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-500">
+                  {(ticket.resolvedByName ?? ticket.closedByName) ?? <span className="text-gray-300">—</span>}
+                </td>
                 <td className="whitespace-nowrap px-4 py-3" onClick={(e) => e.stopPropagation()}>
                   <TimerCell
                     ticket={ticket}

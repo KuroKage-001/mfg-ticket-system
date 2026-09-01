@@ -99,6 +99,12 @@ const TICKET_DETAIL_INCLUDE = {
   assignedTo: {
     select: { id: true, fullName: true, email: true },
   },
+  resolvedBy: {
+    select: { id: true, fullName: true, email: true },
+  },
+  closedBy: {
+    select: { id: true, fullName: true, email: true },
+  },
   comments: {
     orderBy: { createdAt: "asc" as const },
     include: {
@@ -334,6 +340,14 @@ export async function listTickets(
         assignedTo: {
           select: { fullName: true },
         },
+        resolvedById: true,
+        resolvedBy: {
+          select: { fullName: true },
+        },
+        closedById: true,
+        closedBy: {
+          select: { fullName: true },
+        },
         createdAt: true,
         updatedAt: true,
         resolvedAt: true,
@@ -348,6 +362,10 @@ export async function listTickets(
       ...t,
       assignedToName: (t.assignedTo as { fullName: string } | null)?.fullName ?? null,
       assignedTo: undefined,
+      resolvedByName: (t.resolvedBy as { fullName: string } | null)?.fullName ?? null,
+      resolvedBy: undefined,
+      closedByName: (t.closedBy as { fullName: string } | null)?.fullName ?? null,
+      closedBy: undefined,
     })) as unknown as TicketSummary[],
     total,
     page,
@@ -629,6 +647,7 @@ export async function transitionStatus(
 
   if (effectiveStatus === "RESOLVED") {
     data.resolvedAt = new Date();
+    data.resolvedBy = { connect: { id: actor.id } };
   }
 
   if (effectiveStatus === "CLOSED") {
@@ -636,14 +655,18 @@ export async function transitionStatus(
     // closed requests charts and the resolved date field both populate.
     if (isTaskOrRequest && newStatus === "RESOLVED") {
       data.resolvedAt = new Date();
+      data.resolvedBy = { connect: { id: actor.id } };
     }
     data.closedAt = new Date();
+    data.closedBy = { connect: { id: actor.id } };
   }
 
-  // Reopening clears both resolved and closed timestamps
+  // Reopening clears both resolved and closed timestamps and their actors
   if (effectiveStatus === "IN_PROGRESS") {
-    data.resolvedAt = null;
-    data.closedAt   = null;
+    data.resolvedAt  = null;
+    data.closedAt    = null;
+    data.resolvedBy  = { disconnect: true };
+    data.closedBy    = { disconnect: true };
   }
 
   // When an employee takes an unassigned OPEN ticket (clicks "Start"), auto-assign

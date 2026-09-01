@@ -24,6 +24,10 @@ export interface TicketSummary {
   usedKnowledgeBase: boolean;
   assignedToId: number | null;
   assignedToName: string | null;
+  resolvedById: number | null;
+  resolvedByName: string | null;
+  closedById: number | null;
+  closedByName: string | null;
   createdById: number;
   createdAt: string;
   updatedAt: string;
@@ -70,6 +74,8 @@ export interface TicketDetail extends TicketSummary {
   closedAt: string | null;
   createdBy: SafeUser;
   assignedTo: SafeUser | null;
+  resolvedBy: SafeUser | null;
+  closedBy: SafeUser | null;
   comments: TicketComment[];
   activities: TicketActivity[];
   attachments: TicketAttachment[];

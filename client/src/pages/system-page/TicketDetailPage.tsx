@@ -304,16 +304,19 @@ function TicketDetailPage(): React.ReactElement {
   }, [ticket, user, timerTicketType, refetch]);
 
   /**
-   * Called when the user clicks "Start Timer" on an OPEN ticket.
-   * Transitions OPEN → IN_PROGRESS so the server status stays in sync with
-   * the local timer starting.
+   * Called when the user clicks "Start Timer" on an OPEN or reopened IN_PROGRESS ticket.
+   * Only transitions OPEN → IN_PROGRESS; if already IN_PROGRESS the server call is skipped.
    */
   const handleTimerStart = useCallback(async (): Promise<void> => {
-    if (!ticket || ticket.status !== 'OPEN') return;
+    if (!ticket) return;
     setTimerError('');
     try {
-      await transitionStatus(ticket.id, 'IN_PROGRESS');
-      void refetch();
+      // Only transition if still OPEN — reopened tickets are already IN_PROGRESS
+      if (ticket.status === 'OPEN') {
+        await transitionStatus(ticket.id, 'IN_PROGRESS');
+        void refetch();
+      }
+      // If IN_PROGRESS, no server call needed — timer starts locally
     } catch (err: unknown) {
       const apiErr = err as { message?: string };
       setTimerError(apiErr.message ?? 'Failed to update ticket status.');
@@ -584,10 +587,24 @@ function TicketDetailPage(): React.ReactElement {
             </dd>
           </div>
 
+          {ticket.resolvedBy !== null && ticket.resolvedBy !== undefined && (
+            <div>
+              <dt className="text-xs font-medium text-gray-500">Resolved by</dt>
+              <dd className="mt-0.5 text-sm text-gray-800">{ticket.resolvedBy.fullName}</dd>
+            </div>
+          )}
+
           {closedAtFormatted !== null && (
             <div>
               <dt className="text-xs font-medium text-gray-500">Closed</dt>
               <dd className="mt-0.5 text-sm text-gray-800">{closedAtFormatted}</dd>
+            </div>
+          )}
+
+          {ticket.closedBy !== null && ticket.closedBy !== undefined && (
+            <div>
+              <dt className="text-xs font-medium text-gray-500">Closed by</dt>
+              <dd className="mt-0.5 text-sm text-gray-800">{ticket.closedBy.fullName}</dd>
             </div>
           )}
 
@@ -640,9 +657,9 @@ function TicketDetailPage(): React.ReactElement {
           <TicketTimer
             ticketId={ticket.id}
             onComplete={() => { void handleTimerComplete(); }}
-            {...(ticket.status === 'OPEN' ? {
+            {...((ticket.status === 'OPEN' || ticket.status === 'IN_PROGRESS') ? {
               onStart: (_extId) => { void handleTimerStart(); },
-              externalTicketId: ticket.title.match(/^\[([A-Z0-9]+)\]/i)?.[1] ?? '',
+              externalTicketId: ticket.title.match(/^\[?([A-Z0-9]+)\]?/i)?.[1] ?? '',
             } : {})}
           />
           {timerError && (

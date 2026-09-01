@@ -61,6 +61,12 @@ export interface TicketSummary {
   createdById: number;
   assignedToId: number | null;
   assignedToName: string | null;
+  resolvedById: number | null;
+  resolvedByName: string | null;
+  closedById: number | null;
+  closedByName: string | null;
+  resolvedAt: Date | null;
+  closedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -97,12 +103,18 @@ export interface TicketDetail {
   contactMethod: ContactMethod | null;
   createdById: number;
   assignedToId: number | null;
+  resolvedById: number | null;
+  resolvedByName: string | null;
+  closedById: number | null;
+  closedByName: string | null;
   resolvedAt: Date | null;
   closedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
   createdBy: Pick<SafeUser, "id" | "fullName" | "email">;
   assignedTo: Pick<SafeUser, "id" | "fullName" | "email"> | null;
+  resolvedBy: Pick<SafeUser, "id" | "fullName" | "email"> | null;
+  closedBy: Pick<SafeUser, "id" | "fullName" | "email"> | null;
   comments: TicketComment[];
   activities: TicketActivity[];
 }
