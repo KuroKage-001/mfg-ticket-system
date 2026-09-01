@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getSummary } from '../../services/system-api-services/dashboard.service';
 import type { DashboardSummary } from '../../services/system-api-services/dashboard.service';
@@ -14,6 +14,249 @@ import TopResolversChart from '../../components/system-components/TopResolversCh
 import ClosedRequestsChart from '../../components/system-components/ClosedRequestsChart';
 import ClosedRequestsDailyChart from '../../components/system-components/ClosedRequestsDailyChart';
 import ClosedRequestsTopResolversChart from '../../components/system-components/ClosedRequestsTopResolversChart';
+import * as XLSXStyle from 'xlsx-js-style';
+
+// ---------------------------------------------------------------------------
+// Export utilities
+// ---------------------------------------------------------------------------
+
+/** Fetch ALL tickets by paginating the /api/tickets endpoint (max 100/page). */
+async function fetchAllTicketsForExport(): Promise<TicketSummaryItem[]> {
+  const LIMIT = 100;
+  const first = await listTickets({ page: 1, limit: LIMIT });
+  const totalPages = Math.max(1, Math.ceil(first.total / LIMIT));
+  if (totalPages <= 1) return first.data;
+
+  const rest = await Promise.all(
+    Array.from({ length: totalPages - 1 }, (_, i) =>
+      listTickets({ page: i + 2, limit: LIMIT }),
+    ),
+  );
+  return [first.data, ...rest.map((r) => r.data)].flat();
+}
+
+const EXPORT_HEADERS = [
+  'Ticket #',
+  'Title',
+  'Status',
+  'Priority',
+  'Category',
+  'Used KB',
+  'Assigned To',
+  'Created By (ID)',
+  'Created At',
+  'Updated At',
+  'Resolved At',
+  'Closed At',
+] as const;
+
+function ticketToRow(t: TicketSummaryItem): (string | number)[] {
+  const fmt = (iso: string | null): string =>
+    iso ? new Date(iso).toLocaleString(undefined, {
+      year: 'numeric', month: 'short', day: 'numeric',
+      hour: '2-digit', minute: '2-digit',
+    }) : '';
+
+  return [
+    t.ticketNumber,
+    t.title,
+    t.status,
+    t.priority,
+    t.category,
+    t.usedKnowledgeBase ? 'Yes' : 'No',
+    t.assignedToName ?? 'Unassigned',
+    t.createdById,
+    fmt(t.createdAt),
+    fmt(t.updatedAt),
+    fmt(t.resolvedAt),
+    fmt(t.closedAt),
+  ];
+}
+
+function exportReportFilename(ext: string): string {
+  const now = new Date();
+  const stamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  return `tickets-report-${stamp}.${ext}`;
+}
+
+function exportCSV(tickets: TicketSummaryItem[]): void {
+  const rows = [EXPORT_HEADERS, ...tickets.map(ticketToRow)];
+  const csv = rows.map((r) =>
+    r.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(','),
+  ).join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = exportReportFilename('csv');
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function exportExcel(tickets: TicketSummaryItem[]): void {
+  const wb = XLSXStyle.utils.book_new();
+  const sheetData: (string | number)[][] = [
+    [...EXPORT_HEADERS],
+    ...tickets.map(ticketToRow),
+  ];
+  const ws = XLSXStyle.utils.aoa_to_sheet(sheetData);
+
+  // Style header row
+  EXPORT_HEADERS.forEach((_, colIdx) => {
+    const addr = XLSXStyle.utils.encode_cell({ r: 0, c: colIdx });
+    if (!ws[addr]) ws[addr] = { v: EXPORT_HEADERS[colIdx], t: 's' };
+    ws[addr] = {
+      ...ws[addr],
+      s: {
+        font:      { bold: true, color: { rgb: 'FFFFFF' }, sz: 11 },
+        fill:      { fgColor: { rgb: '1E293B' } },
+        alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+        border: {
+          bottom: { style: 'thin', color: { rgb: '94A3B8' } },
+          right:  { style: 'thin', color: { rgb: '94A3B8' } },
+        },
+      },
+    };
+  });
+
+  // Alternate row shading on data rows
+  tickets.forEach((_, rowIdx) => {
+    const isEven = rowIdx % 2 === 0;
+    EXPORT_HEADERS.forEach((_, colIdx) => {
+      const addr = XLSXStyle.utils.encode_cell({ r: rowIdx + 1, c: colIdx });
+      if (!ws[addr]) ws[addr] = { v: '', t: 's' };
+      ws[addr] = {
+        ...ws[addr],
+        s: {
+          fill:      { fgColor: { rgb: isEven ? 'F8FAFC' : 'FFFFFF' } },
+          alignment: { vertical: 'center', wrapText: false },
+          border: {
+            bottom: { style: 'thin', color: { rgb: 'E2E8F0' } },
+            right:  { style: 'thin', color: { rgb: 'E2E8F0' } },
+          },
+        },
+      };
+    });
+  });
+
+  // Column widths
+  ws['!cols'] = [
+    { wch: 14 }, // Ticket #
+    { wch: 45 }, // Title
+    { wch: 14 }, // Status
+    { wch: 10 }, // Priority
+    { wch: 12 }, // Category
+    { wch: 9  }, // Used KB
+    { wch: 24 }, // Assigned To
+    { wch: 14 }, // Created By ID
+    { wch: 22 }, // Created At
+    { wch: 22 }, // Updated At
+    { wch: 22 }, // Resolved At
+    { wch: 22 }, // Closed At
+  ];
+
+  XLSXStyle.utils.book_append_sheet(wb, ws, 'Tickets Report');
+  XLSXStyle.writeFile(wb, exportReportFilename('xlsx'));
+}
+
+// ---------------------------------------------------------------------------
+// ExportButton — handles loading state + dropdown
+// ---------------------------------------------------------------------------
+
+function ExportButton(): React.ReactElement {
+  const [open, setOpen]       = useState(false);
+  const [busy, setBusy]       = useState(false);
+  const [exportErr, setExportErr] = useState('');
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent): void => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const run = useCallback(async (format: 'csv' | 'xlsx'): Promise<void> => {
+    setOpen(false);
+    setBusy(true);
+    setExportErr('');
+    try {
+      const tickets = await fetchAllTicketsForExport();
+      if (format === 'csv') exportCSV(tickets);
+      else                  exportExcel(tickets);
+    } catch (err: unknown) {
+      const e = err as { message?: string };
+      setExportErr(e.message ?? 'Export failed. Please try again.');
+    } finally {
+      setBusy(false);
+    }
+  }, []);
+
+  return (
+    <div className="relative" ref={menuRef}>
+      {exportErr && (
+        <p className="absolute -top-7 right-0 text-xs text-red-600 whitespace-nowrap">{exportErr}</p>
+      )}
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => { setOpen((o) => !o); }}
+        className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 shadow-sm hover:bg-gray-50 hover:border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        aria-haspopup="true"
+        aria-expanded={open}
+      >
+        {busy ? (
+          <>
+            <svg className="animate-spin h-3.5 w-3.5 text-gray-500" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+            </svg>
+            Exporting…
+          </>
+        ) : (
+          <>
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            </svg>
+            Export Report
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+            </svg>
+          </>
+        )}
+      </button>
+
+      {open && !busy && (
+        <div className="absolute right-0 mt-1.5 z-20 w-44 rounded-lg bg-white border border-gray-200 shadow-lg py-1">
+          <button
+            type="button"
+            onClick={() => { void run('csv'); }}
+            className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 17v-2m3 2v-4m3 4v-6M5 21h14a2 2 0 002-2V7l-5-5H5a2 2 0 00-2 2v14a2 2 0 002 2z" />
+            </svg>
+            Download CSV
+          </button>
+          <button
+            type="button"
+            onClick={() => { void run('xlsx'); }}
+            className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M3 14h18M10 3v18M14 3v18M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z" />
+            </svg>
+            Download Excel
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Loading skeletons
@@ -432,7 +675,7 @@ function DashboardPage(): React.ReactElement {
           <div className="mt-1 h-4 bg-gray-100 rounded w-64 animate-pulse" />
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-8">
-          {Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)}
+          {Array.from({ length: user?.role === 'ADMIN' ? 7 : 8 }).map((_, i) => <SkeletonCard key={i} />)}
         </div>
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
           <div className="px-5 py-4 border-b border-gray-100">
@@ -513,7 +756,7 @@ function DashboardPage(): React.ReactElement {
       icon: <IconLock className="h-5 w-5 text-gray-400" />,
       onClick: () => { setActiveModal('CLOSED'); },
     },
-    {
+    ...(user?.role !== 'ADMIN' ? [{
       cardKey: 'Cancelled',
       label: 'Cancelled',
       value: summary.cancelled,
@@ -521,7 +764,7 @@ function DashboardPage(): React.ReactElement {
       iconBg: 'bg-rose-50',
       icon: <IconCancel className="h-5 w-5 text-rose-400" />,
       onClick: () => { setActiveModal('CANCELLED'); },
-    },
+    }] : []),
     {
       cardKey: 'Urgent',
       label: 'Urgent',
@@ -592,8 +835,13 @@ function DashboardPage(): React.ReactElement {
 
       {/* Page heading */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-800 tracking-tight">Dashboard</h1>
-        <p className="mt-1 text-sm text-gray-400">Overview of current ticket activity</p>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800 tracking-tight">Dashboard</h1>
+            <p className="mt-1 text-sm text-gray-400">Overview of current ticket activity</p>
+          </div>
+          <ExportButton />
+        </div>
       </div>
 
       {/* Employee banner */}
