@@ -169,12 +169,18 @@ export interface TopResolversChartProps {
   initialMonth?: number;
   /** How many named entries to show before "Other" (default 10) */
   topN?: number;
+  /**
+   * Called when the user clicks a named resolver bar or table row.
+   * Receives the full assignee name. "Other" rows are not clickable.
+   */
+  onResolverClick?: (assigneeName: string) => void;
 }
 
 export default function TopResolversChart({
   initialYear,
   initialMonth,
   topN = TOP_N_DEFAULT,
+  onResolverClick,
 }: TopResolversChartProps): React.ReactElement {
   const [year,  setYear]  = useState<number>(initialYear  ?? currentYear());
   const [month, setMonth] = useState<number>(initialMonth ?? 0);  // 0 = full year
@@ -414,6 +420,13 @@ export default function TopResolversChart({
                       dataKey="count"
                       radius={[0, 3, 3, 0]}
                       maxBarSize={22}
+                      style={{ cursor: onResolverClick ? 'pointer' : 'default' }}
+                      onClick={(data) => {
+                        const full = (data as unknown as { full?: string }).full;
+                        if (onResolverClick && full && full !== 'Other') {
+                          onResolverClick(full);
+                        }
+                      }}
                     >
                       {chartData.map((entry) => (
                         <Cell
@@ -446,7 +459,14 @@ export default function TopResolversChart({
                         return (
                           <tr
                             key={row.assigneeName}
-                            className={`hover:bg-blue-50 transition-colors ${isOther ? 'text-gray-400' : ''}`}
+                            onClick={() => {
+                              if (!isOther && onResolverClick) onResolverClick(row.assigneeName);
+                            }}
+                            className={[
+                              'transition-colors',
+                              isOther ? 'text-gray-400' : '',
+                              !isOther && onResolverClick ? 'cursor-pointer hover:bg-blue-50' : 'hover:bg-blue-50',
+                            ].join(' ')}
                           >
                             <td className="px-3 py-1.5 font-mono text-gray-400 text-center">
                               {isOther ? '—' : row.rank}
@@ -455,7 +475,9 @@ export default function TopResolversChart({
                               {isOther ? (
                                 <span className="italic text-gray-400">{row.assigneeName}</span>
                               ) : (
-                                row.assigneeName
+                                <span className={onResolverClick ? 'text-blue-700 hover:underline' : ''}>
+                                  {row.assigneeName}
+                                </span>
                               )}
                             </td>
                             <td className="px-3 py-1.5 text-right font-bold text-blue-700">

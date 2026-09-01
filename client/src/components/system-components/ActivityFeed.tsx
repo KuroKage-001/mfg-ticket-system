@@ -118,6 +118,15 @@ function buildDescription(entry: TicketActivityWithActor): React.ReactElement {
       return <span>{actor} added a comment</span>;
 
     case 'FIELD_UPDATED':
+      // Notes from the resolve/close modal are stored as FIELD_UPDATED with
+      // oldValue = null and newValue containing the action label string.
+      if (old === null && next !== null) {
+        return (
+          <span>
+            {actor} selected: <span className="font-medium text-gray-800">{next}</span>
+          </span>
+        );
+      }
       return (
         <span>
           {actor} updated a field

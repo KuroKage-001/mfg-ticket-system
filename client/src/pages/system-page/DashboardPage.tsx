@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { getSummary } from '../../services/system-api-services/dashboard.service';
 import type { DashboardSummary } from '../../services/system-api-services/dashboard.service';
 import { listTickets } from '../../services/system-api-services/ticket.service';
@@ -624,6 +624,7 @@ function IconUser({ className }: { className?: string }): React.ReactElement {
 
 function DashboardPage(): React.ReactElement {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>('');
@@ -856,7 +857,11 @@ function DashboardPage(): React.ReactElement {
           <div className="space-y-8">
             <ResolvedIncidentsChart />
             <ResolvedIncidentsDailyChart />
-            <TopResolversChart />
+            <TopResolversChart
+              onResolverClick={(name) => {
+                void navigate(`/resolver-tickets?name=${encodeURIComponent(name)}&type=incidents`);
+              }}
+            />
           </div>
         )}
       </div>
@@ -876,7 +881,11 @@ function DashboardPage(): React.ReactElement {
           <div className="space-y-8">
             <ClosedRequestsChart />
             <ClosedRequestsDailyChart />
-            <ClosedRequestsTopResolversChart />
+            <ClosedRequestsTopResolversChart
+              onResolverClick={(name) => {
+                void navigate(`/resolver-tickets?name=${encodeURIComponent(name)}&type=requests`);
+              }}
+            />
           </div>
         )}
       </div>

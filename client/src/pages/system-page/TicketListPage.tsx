@@ -386,7 +386,9 @@ function TicketListPage(): React.ReactElement {
   // `completeTimer` is called after a successful API transition to mark the
   // local timer as done; it is a no-op when undefined (e.g. called from an
   // external source rather than the timer button).
-  const executeResolve = useCallback(async (ticketId: number, completeTimer?: () => void, assignFirst = false): Promise<void> => {
+  // `note` is an optional free-text string logged as a FIELD_UPDATED activity
+  // on the server so the activity feed records which modal option was chosen.
+  const executeResolve = useCallback(async (ticketId: number, completeTimer?: () => void, assignFirst = false, note?: string): Promise<void> => {
     setResolvingId(ticketId);
     setResolveError('');
     try {
@@ -400,7 +402,7 @@ function TicketListPage(): React.ReactElement {
       if (assignFirst) {
         await selfAssignTicket(ticketId);
       }
-      await transitionStatus(ticketId, targetStatus);
+      await transitionStatus(ticketId, targetStatus, note);
       completeTimer?.();
     } catch (err: unknown) {
       const apiErr = err as { message?: string };
@@ -456,12 +458,12 @@ function TicketListPage(): React.ReactElement {
       proceedOnly: () => {
         const cb = pendingCompleteTimerRef.current;
         dismiss();
-        void executeResolve(ticketId, cb ?? undefined, false);
+        void executeResolve(ticketId, cb ?? undefined, false, `${actionLabel} Only`);
       },
       proceedWithAssign: () => {
         const cb = pendingCompleteTimerRef.current;
         dismiss();
-        void executeResolve(ticketId, cb ?? undefined, true);
+        void executeResolve(ticketId, cb ?? undefined, true, `Assign to Me + ${actionLabel}`);
       },
     });
   }, [user, allTickets, executeResolve]);

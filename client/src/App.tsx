@@ -6,6 +6,7 @@ import DashboardPage from './pages/system-page/DashboardPage';
 import TicketListPage from './pages/system-page/TicketListPage';
 import TicketDetailPage from './pages/system-page/TicketDetailPage';
 import CreateTicketPage from './pages/system-page/CreateTicketPage';
+import ResolverTicketsPage from './pages/system-page/ResolverTicketsPage';
 import UserListPage from './pages/admin-pages/UserListPage';
 import CreateUserPage from './pages/admin-pages/CreateUserPage';
 import EditUserPage from './pages/admin-pages/EditUserPage';
@@ -30,6 +31,7 @@ const router = createBrowserRouter([
       { path: '/tickets', element: <TicketListPage /> },
       { path: '/tickets/new', element: <CreateTicketPage /> },
       { path: '/tickets/:id', element: <TicketDetailPage /> },
+      { path: '/resolver-tickets', element: <ResolverTicketsPage /> },
     ],
   },
   // Admin-only routes

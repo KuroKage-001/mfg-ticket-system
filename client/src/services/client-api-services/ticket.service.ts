@@ -76,10 +76,9 @@ export async function uploadAttachments(
 
 /**
  * POST /api/tickets/:id/status
- * Transitions the ticket to the given status. Valid employee transitions
- * (only on tickets assigned to the requesting user) are:
- *   OPEN        → IN_PROGRESS
- *   IN_PROGRESS → RESOLVED
+ * Transitions the ticket to the given status. Accepts an optional `note`
+ * that is persisted as a FIELD_UPDATED activity on the server (e.g. records
+ * which option the user selected in the confirm-resolve modal).
  *
  * @throws {ApiError} 401 — unauthenticated
  * @throws {ApiError} 403 — ticket not assigned to the requesting user, or
@@ -90,10 +89,11 @@ export async function uploadAttachments(
 export async function transitionStatus(
   id: number,
   status: string,
+  note?: string,
 ): Promise<TicketDetail> {
   return apiFetch<TicketDetail>(`/tickets/${id}/status`, {
     method: 'POST',
-    body: JSON.stringify({ status }),
+    body: JSON.stringify({ status, ...(note ? { note } : {}) }),
   });
 }
 

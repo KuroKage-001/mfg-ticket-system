@@ -563,12 +563,17 @@ export async function assignTicket(
 /**
  * Transitions a ticket's status according to the role-based transition rules.
  *
+ * @param note  Optional free-text note logged as a FIELD_UPDATED activity
+ *              immediately after the status transition (e.g. "Assign to Me +
+ *              Resolve" or "Resolve Only").  Limited to 500 characters.
+ *
  * Requirements: 7.1–7.10
  */
 export async function transitionStatus(
   id: number,
   newStatus: Status,
-  actor: SessionUser
+  actor: SessionUser,
+  note?: string
 ): Promise<TicketDetail> {
   // ── Fetch ticket ────────────────────────────────────────────────────────────
   const ticket = await prisma.ticket.findUnique({ where: { id } });
@@ -675,6 +680,17 @@ export async function transitionStatus(
       action: ActivityAction.ASSIGNMENT_CHANGED,
       oldValue: null,
       newValue: actor.fullName,
+      ticketId: id,
+      actorId: actor.id,
+    });
+  }
+
+  // Log the optional caller-supplied note (e.g. which modal option was chosen)
+  if (note && note.trim().length > 0) {
+    await ActivityLogger.log({
+      action: ActivityAction.FIELD_UPDATED,
+      oldValue: null,
+      newValue: note.trim().substring(0, 500),
       ticketId: id,
       actorId: actor.id,
     });

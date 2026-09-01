@@ -47,7 +47,14 @@ export async function POST(
 
     const newStatus = body.status as Status;
 
-    const updated = await Ticket_Service.transitionStatus(id, newStatus, user);
+    // Optional free-text note (e.g. which modal option the user selected).
+    // Silently ignored if absent or not a string.
+    const note: string | undefined =
+      typeof body.note === "string" && body.note.trim().length > 0
+        ? body.note.trim()
+        : undefined;
+
+    const updated = await Ticket_Service.transitionStatus(id, newStatus, user, note);
 
     return NextResponse.json(updated, { status: 200 });
   } catch (err) {
