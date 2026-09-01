@@ -515,7 +515,7 @@ function TicketListPage(): React.ReactElement {
                     externalId={externalId}
                     compact
                     onCompleteIntent={(completeTimer) => {
-                      handleInlineResolve(ticket.id, { stopPropagation: () => undefined } as React.MouseEvent, ticket, completeTimer);
+                      handleInlineResolve(ticket.id, { stopPropagation: () => undefined, preventDefault: () => undefined } as React.MouseEvent, ticket, completeTimer);
                     }}
                     onStarted={() => { setRefreshKey((k) => k + 1); }}
                   />
@@ -603,7 +603,7 @@ function TicketListPage(): React.ReactElement {
                     externalId={record?.externalId || ticket.title}
                     compact
                     onCompleteIntent={(completeTimer) => {
-                      handleInlineResolve(ticket.id, { stopPropagation: () => undefined } as React.MouseEvent, ticket, completeTimer);
+                      handleInlineResolve(ticket.id, { stopPropagation: () => undefined, preventDefault: () => undefined } as React.MouseEvent, ticket, completeTimer);
                     }}
                     onStarted={() => { setRefreshKey((k) => k + 1); }}
                   />

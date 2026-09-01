@@ -618,14 +618,6 @@ function IconUser({ className }: { className?: string }): React.ReactElement {
   );
 }
 
-function IconCancel({ className }: { className?: string }): React.ReactElement {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} aria-hidden="true">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-    </svg>
-  );
-}
-
 // ---------------------------------------------------------------------------
 // DashboardPage
 // ---------------------------------------------------------------------------
@@ -675,7 +667,7 @@ function DashboardPage(): React.ReactElement {
           <div className="mt-1 h-4 bg-gray-100 rounded w-64 animate-pulse" />
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-8">
-          {Array.from({ length: user?.role === 'ADMIN' ? 7 : 8 }).map((_, i) => <SkeletonCard key={i} />)}
+          {Array.from({ length: 7 }).map((_, i) => <SkeletonCard key={i} />)}
         </div>
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
           <div className="px-5 py-4 border-b border-gray-100">
@@ -756,15 +748,6 @@ function DashboardPage(): React.ReactElement {
       icon: <IconLock className="h-5 w-5 text-gray-400" />,
       onClick: () => { setActiveModal('CLOSED'); },
     },
-    ...(user?.role !== 'ADMIN' ? [{
-      cardKey: 'Cancelled',
-      label: 'Cancelled',
-      value: summary.cancelled,
-      accent: 'text-rose-600',
-      iconBg: 'bg-rose-50',
-      icon: <IconCancel className="h-5 w-5 text-rose-400" />,
-      onClick: () => { setActiveModal('CANCELLED'); },
-    }] : []),
     {
       cardKey: 'Urgent',
       label: 'Urgent',

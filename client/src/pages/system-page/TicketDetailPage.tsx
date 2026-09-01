@@ -23,6 +23,8 @@ import { getTicketById, getTicketAttachments } from '../../services/system-api-s
 import type { TicketDetail, TicketAttachment } from '../../services/system-api-services/ticket.service';
 import { BASE_URL } from '../../config/api.config';
 import { transitionStatus, uploadAttachments } from '../../services/client-api-services/ticket.service';
+import { listKBArticles } from '../../services/admin-api-services/kb.service';
+import type { KBArticle } from '../../services/admin-api-services/kb.service';
 import { useTicketTimer } from '../../hooks/system-hooks/useTicketTimer';
 import TicketStatusBadge from '../../components/system-components/TicketStatusBadge';
 import TicketPriorityBadge from '../../components/system-components/TicketPriorityBadge';
@@ -161,6 +163,7 @@ function TicketDetailPage(): React.ReactElement {
   const [isReopening, setIsReopening] = useState<boolean>(false);
   const [reopenError, setReopenError] = useState<string>('');
   const [timerError, setTimerError] = useState<string>('');
+  const [kbArticle, setKbArticle] = useState<KBArticle | null>(null);
 
   // ------------------------------------------------------------------
   // Attachment upload state
@@ -357,6 +360,32 @@ function TicketDetailPage(): React.ReactElement {
       cancelled = true;
     };
   }, [id]);
+
+  // Fetch KB articles to find the one used, when ticket has usedKnowledgeBase=true
+  useEffect(() => {
+    if (!ticket?.usedKnowledgeBase) { setKbArticle(null); return; }
+    // Extract KB article title from the description footer appended by CreateTicketModal:
+    // "KB Article Used: <title>"
+    const match = /KB Article Used:\s*(.+)/i.exec(ticket.description);
+    const kbTitle = match?.[1]?.trim() ?? null;
+    if (!kbTitle) { setKbArticle(null); return; }
+
+    let cancelled = false;
+    listKBArticles()
+      .then((articles) => {
+        if (cancelled) return;
+        // Match by title (case-insensitive exact match)
+        const found = articles.find(
+          (a) => a.title.toLowerCase() === kbTitle.toLowerCase(),
+        ) ?? articles.find(
+          // Fallback: title is contained in the stored string (handles trailing whitespace)
+          (a) => kbTitle.toLowerCase().includes(a.title.toLowerCase()),
+        ) ?? null;
+        setKbArticle(found);
+      })
+      .catch(() => { if (!cancelled) setKbArticle(null); });
+    return () => { cancelled = true; };
+  }, [ticket?.id, ticket?.usedKnowledgeBase, ticket?.description]);
 
   // ------------------------------------------------------------------
   // Handlers passed to action components
@@ -571,6 +600,37 @@ function TicketDetailPage(): React.ReactElement {
               )}
             </dd>
           </div>
+
+          {ticket.usedKnowledgeBase && (
+            <div className="sm:col-span-2">
+              <dt className="text-xs font-medium text-gray-500">KB Article Used</dt>
+              <dd className="mt-0.5">
+                {kbArticle !== null ? (
+                  <a
+                    href={kbArticle.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-inset ring-emerald-200 hover:bg-emerald-100 transition-colors"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                    </svg>
+                    {kbArticle.title}
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                  </a>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-inset ring-emerald-200">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                    </svg>
+                    KB Used
+                  </span>
+                )}
+              </dd>
+            </div>
+          )}
         </dl>
 
         {/* Local timer for this ticket */}
