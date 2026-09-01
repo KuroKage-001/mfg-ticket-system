@@ -96,3 +96,21 @@ export async function transitionStatus(
     body: JSON.stringify({ status }),
   });
 }
+
+/**
+ * POST /api/tickets/:id/self-assign
+ * Assigns the ticket to the currently authenticated user.
+ * Available to any authenticated role.
+ *
+ * @throws {ApiError} 401 — unauthenticated
+ * @throws {ApiError} 404 — ticket not found
+ * @throws {ApiError} 422 — ticket is CLOSED or CANCELLED
+ */
+export async function selfAssignTicket(
+  id: number,
+): Promise<{ assignedToId: number; assignedToName: string | null }> {
+  return apiFetch<{ assignedToId: number; assignedToName: string | null }>(
+    `/tickets/${id}/self-assign`,
+    { method: 'POST' },
+  );
+}

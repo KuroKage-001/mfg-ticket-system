@@ -19,7 +19,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/system-hooks/useAuth';
 import { useTickets } from '../../hooks/system-hooks/useTickets';
 import type { TicketSummary, TicketListQuery } from '../../services/system-api-services/ticket.service';
-import { transitionStatus } from '../../services/client-api-services/ticket.service';
+import { transitionStatus, selfAssignTicket } from '../../services/client-api-services/ticket.service';
 import { useTicketTimer } from '../../hooks/system-hooks/useTicketTimer';
 import PaginationControls from '../../components/system-components/PaginationControls';
 import TicketStatusBadge from '../../components/system-components/TicketStatusBadge';
@@ -79,11 +79,21 @@ const TYPE_BADGE: Record<TicketType, string> = {
 interface ConfirmResolveModalProps {
   ticketNumber: string;
   actionLabel: string;
-  onConfirm: () => void;
+  /** When set, the ticket belongs to someone else — show the two-option layout */
+  assigneeName: string | null;
+  onResolveOnly: () => void;
+  onAssignAndResolve: () => void;
   onCancel: () => void;
 }
 
-function ConfirmResolveModal({ ticketNumber, actionLabel, onConfirm, onCancel }: ConfirmResolveModalProps): React.ReactElement {
+function ConfirmResolveModal({
+  ticketNumber,
+  actionLabel,
+  assigneeName,
+  onResolveOnly,
+  onAssignAndResolve,
+  onCancel,
+}: ConfirmResolveModalProps): React.ReactElement {
   const block = (e: React.MouseEvent): void => { e.stopPropagation(); e.preventDefault(); };
 
   // Close on Escape
@@ -92,6 +102,8 @@ function ConfirmResolveModal({ ticketNumber, actionLabel, onConfirm, onCancel }:
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
   }, [onCancel]);
+
+  const isOthersTicket = assigneeName !== null;
 
   return (
     <div
@@ -108,6 +120,7 @@ function ConfirmResolveModal({ ticketNumber, actionLabel, onConfirm, onCancel }:
         aria-hidden="true"
       />
       <div className="relative z-10 w-full max-w-sm rounded-xl bg-white shadow-2xl ring-1 ring-gray-200 p-6" onClick={block}>
+        {/* Header */}
         <div className="flex items-start gap-3 mb-4">
           <div className="shrink-0 flex items-center justify-center h-10 w-10 rounded-full bg-green-100">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
@@ -118,11 +131,57 @@ function ConfirmResolveModal({ ticketNumber, actionLabel, onConfirm, onCancel }:
             <h2 id="confirm-resolve-title" className="text-sm font-semibold text-gray-900">
               {actionLabel} ticket {ticketNumber}?
             </h2>
-            <p className="mt-1 text-sm text-gray-500">
-              This will mark the ticket as {actionLabel.toLowerCase()}d and stop the timer. This action is logged in the activity feed.
-            </p>
+            {isOthersTicket ? (
+              <p className="mt-1 text-sm text-gray-500">
+                This ticket is currently assigned to{' '}
+                <span className="font-medium text-gray-700">{assigneeName}</span>.
+                How would you like to proceed?
+              </p>
+            ) : (
+              <p className="mt-1 text-sm text-gray-500">
+                This will mark the ticket as {actionLabel.toLowerCase()}d and stop the timer.
+                This action is logged in the activity feed.
+              </p>
+            )}
           </div>
         </div>
+
+        {/* Two-option layout for other people's tickets */}
+        {isOthersTicket ? (
+          <div className="space-y-2 mb-4">
+            <button
+              type="button"
+              onClick={(e) => { block(e); onAssignAndResolve(); }}
+              className="w-full flex items-start gap-3 rounded-lg border-2 border-green-200 bg-green-50 px-4 py-3 text-left hover:border-green-400 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-green-500 transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-600 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+              <div>
+                <p className="text-sm font-semibold text-green-800">Assign to Me + {actionLabel}</p>
+                <p className="text-xs text-green-700 mt-0.5">Reassign this ticket to yourself, then {actionLabel.toLowerCase()} it.</p>
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={(e) => { block(e); onResolveOnly(); }}
+              className="w-full flex items-start gap-3 rounded-lg border-2 border-gray-200 bg-gray-50 px-4 py-3 text-left hover:border-gray-400 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-400 transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+              <div>
+                <p className="text-sm font-semibold text-gray-700">{actionLabel} Only</p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {actionLabel} without changing the assignment. Ticket stays assigned to{' '}
+                  <span className="font-medium">{assigneeName}</span>.
+                </p>
+              </div>
+            </button>
+          </div>
+        ) : null}
+
+        {/* Footer */}
         <div className="flex justify-end gap-2">
           <button
             type="button"
@@ -131,13 +190,16 @@ function ConfirmResolveModal({ ticketNumber, actionLabel, onConfirm, onCancel }:
           >
             Cancel
           </button>
-          <button
-            type="button"
-            onClick={(e) => { block(e); onConfirm(); }}
-            className="px-3 py-1.5 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 transition-colors"
-          >
-            Yes, {actionLabel}
-          </button>
+          {/* Simple confirm — only shown for own/unassigned tickets */}
+          {!isOthersTicket && (
+            <button
+              type="button"
+              onClick={(e) => { block(e); onResolveOnly(); }}
+              className="px-3 py-1.5 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 transition-colors"
+            >
+              Yes, {actionLabel}
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -284,7 +346,10 @@ function TicketListPage(): React.ReactElement {
     ticketId: number;
     ticketNumber: string;
     actionLabel: string;
-    proceed: () => void;
+    /** null = own/unassigned ticket; string = someone else's assignee name */
+    assigneeName: string | null;
+    proceedOnly: () => void;
+    proceedWithAssign: () => void;
   } | null>(null);
 
   // Bump to force re-fetch after an inline resolve
@@ -321,7 +386,7 @@ function TicketListPage(): React.ReactElement {
   // `completeTimer` is called after a successful API transition to mark the
   // local timer as done; it is a no-op when undefined (e.g. called from an
   // external source rather than the timer button).
-  const executeResolve = useCallback(async (ticketId: number, completeTimer?: () => void): Promise<void> => {
+  const executeResolve = useCallback(async (ticketId: number, completeTimer?: () => void, assignFirst = false): Promise<void> => {
     setResolvingId(ticketId);
     setResolveError('');
     try {
@@ -331,8 +396,11 @@ function TicketListPage(): React.ReactElement {
       );
       const isAdmin = user?.role === 'ADMIN';
       const targetStatus = (isAdmin && type === 'TASK') ? 'CLOSED' : 'RESOLVED';
+      // Self-assign first if requested, then transition status
+      if (assignFirst) {
+        await selfAssignTicket(ticketId);
+      }
       await transitionStatus(ticketId, targetStatus);
-      // Mark the local timer as done only after the server confirms the transition
       completeTimer?.();
     } catch (err: unknown) {
       const apiErr = err as { message?: string };
@@ -367,19 +435,33 @@ function TicketListPage(): React.ReactElement {
     const isAdmin = user?.role === 'ADMIN';
     const actionLabel = (isAdmin && type === 'TASK') ? 'Close' : type === 'INCIDENT' ? 'Resolve' : 'Close';
 
+    // Determine if this ticket belongs to someone else
+    const isOwnOrUnassigned = t.assignedToId === null || t.assignedToId === user?.id;
+    const assigneeName = isOwnOrUnassigned ? null : (t.assignedToName ?? 'another user');
+
     pendingCompleteTimerRef.current = completeTimer ?? null;
     confirmOpenRef.current = true;
+
+    const dismiss = (): void => {
+      pendingCompleteTimerRef.current = null;
+      confirmOpenRef.current = false;
+      setConfirmResolve(null);
+    };
 
     setConfirmResolve({
       ticketId,
       ticketNumber: t.ticketNumber,
       actionLabel,
-      proceed: () => {
+      assigneeName,
+      proceedOnly: () => {
         const cb = pendingCompleteTimerRef.current;
-        pendingCompleteTimerRef.current = null;
-        confirmOpenRef.current = false;
-        setConfirmResolve(null);
-        void executeResolve(ticketId, cb ?? undefined);
+        dismiss();
+        void executeResolve(ticketId, cb ?? undefined, false);
+      },
+      proceedWithAssign: () => {
+        const cb = pendingCompleteTimerRef.current;
+        dismiss();
+        void executeResolve(ticketId, cb ?? undefined, true);
       },
     });
   }, [user, allTickets, executeResolve]);
@@ -729,7 +811,9 @@ function TicketListPage(): React.ReactElement {
         <ConfirmResolveModal
           ticketNumber={confirmResolve.ticketNumber}
           actionLabel={confirmResolve.actionLabel}
-          onConfirm={confirmResolve.proceed}
+          assigneeName={confirmResolve.assigneeName}
+          onResolveOnly={confirmResolve.proceedOnly}
+          onAssignAndResolve={confirmResolve.proceedWithAssign}
           onCancel={() => {
             pendingCompleteTimerRef.current = null;
             confirmOpenRef.current = false;
