@@ -32,20 +32,14 @@ const EMPLOYEE_TRANSITIONS: Record<Status, Status[]> = {
  * Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 7.7
  */
 export function isValidTransition(ctx: TransitionContext): boolean {
-  const { currentStatus, requestedStatus, role, isAssigned } = ctx;
+  const { currentStatus, requestedStatus, role } = ctx;
 
   if (role === "ADMIN") {
     return ADMIN_TRANSITIONS[currentStatus]?.includes(requestedStatus) ?? false;
   }
 
-  // EMPLOYEE: OPEN → IN_PROGRESS is always valid (taking an unassigned ticket).
-  // All other transitions require the employee to be assigned.
-  if (currentStatus === "OPEN" && requestedStatus === "IN_PROGRESS") {
-    return true;
-  }
-
-  if (!isAssigned) return false;
-
+  // EMPLOYEE: any employee can perform any transition in EMPLOYEE_TRANSITIONS
+  // regardless of whether they are the assigned user.
   return EMPLOYEE_TRANSITIONS[currentStatus]?.includes(requestedStatus) ?? false;
 }
 
@@ -58,14 +52,12 @@ export function isValidTransition(ctx: TransitionContext): boolean {
 export function getAllowedTransitions(
   status: Status,
   role: Role,
-  isAssigned: boolean,
+  _isAssigned: boolean,
 ): Status[] {
   if (role === "ADMIN") {
     return ADMIN_TRANSITIONS[status] ?? [];
   }
 
-  // EMPLOYEE with no assignment has no allowed transitions
-  if (!isAssigned) return [];
-
+  // EMPLOYEE: all transitions are available regardless of assignment
   return EMPLOYEE_TRANSITIONS[status] ?? [];
 }

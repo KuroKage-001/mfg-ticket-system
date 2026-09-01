@@ -585,22 +585,7 @@ export async function transitionStatus(
     if (newStatus === "CANCELLED") {
       throw new ApiError(403, "Employees cannot cancel tickets.");
     }
-
-    // Special case: an employee may take an OPEN unassigned ticket by
-    // transitioning it to IN_PROGRESS (i.e. clicking "Start").
-    const isTakingOpenTicket =
-      currentStatus === "OPEN" &&
-      newStatus === "IN_PROGRESS" &&
-      ticket.assignedToId === null;
-
-    // Any employee can reopen a RESOLVED or CLOSED ticket (transition to IN_PROGRESS)
-    const isReopening =
-      (currentStatus === "RESOLVED" || currentStatus === "CLOSED") &&
-      newStatus === "IN_PROGRESS";
-
-    if (!isAssigned && !isTakingOpenTicket && !isReopening) {
-      throw new ApiError(403, "You are not assigned to this ticket.");
-    }
+    // Any employee may now resolve/close/reopen any ticket regardless of assignment
   }
 
   // ── Transition validity check ────────────────────────────────────────────────

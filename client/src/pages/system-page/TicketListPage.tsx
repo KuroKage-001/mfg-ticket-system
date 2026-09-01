@@ -14,6 +14,7 @@
  */
 
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/system-hooks/useAuth';
 import { useTickets } from '../../hooks/system-hooks/useTickets';
@@ -70,6 +71,78 @@ const TYPE_BADGE: Record<TicketType, string> = {
   REQUEST:  'bg-purple-100 text-purple-700 ring-purple-200',
   GENERAL:  'bg-gray-100 text-gray-500 ring-gray-200',
 };
+
+// ---------------------------------------------------------------------------
+// ConfirmResolveModal
+// ---------------------------------------------------------------------------
+
+interface ConfirmResolveModalProps {
+  ticketNumber: string;
+  actionLabel: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}
+
+function ConfirmResolveModal({ ticketNumber, actionLabel, onConfirm, onCancel }: ConfirmResolveModalProps): React.ReactElement {
+  const block = (e: React.MouseEvent): void => { e.stopPropagation(); e.preventDefault(); };
+
+  // Close on Escape
+  useEffect(() => {
+    const handler = (e: KeyboardEvent): void => { if (e.key === 'Escape') onCancel(); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [onCancel]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="confirm-resolve-title"
+      onClick={block}
+      onMouseDown={block}
+    >
+      <div
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        onClick={(e) => { block(e); onCancel(); }}
+        aria-hidden="true"
+      />
+      <div className="relative z-10 w-full max-w-sm rounded-xl bg-white shadow-2xl ring-1 ring-gray-200 p-6" onClick={block}>
+        <div className="flex items-start gap-3 mb-4">
+          <div className="shrink-0 flex items-center justify-center h-10 w-10 rounded-full bg-green-100">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <div>
+            <h2 id="confirm-resolve-title" className="text-sm font-semibold text-gray-900">
+              {actionLabel} ticket {ticketNumber}?
+            </h2>
+            <p className="mt-1 text-sm text-gray-500">
+              This will mark the ticket as {actionLabel.toLowerCase()}d and stop the timer. This action is logged in the activity feed.
+            </p>
+          </div>
+        </div>
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={(e) => { block(e); onCancel(); }}
+            className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-400 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={(e) => { block(e); onConfirm(); }}
+            className="px-3 py-1.5 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 transition-colors"
+          >
+            Yes, {actionLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // TimerCell — wraps TicketTimer per row so hooks can be called per-ticket.
@@ -204,6 +277,16 @@ function TicketListPage(): React.ReactElement {
   const [, setResolvingId] = useState<number | null>(null);
   const [resolveError, setResolveError] = useState<string>('');
 
+  // Confirmation dialog state
+  const pendingCompleteTimerRef = useRef<(() => void) | null>(null);
+  const confirmOpenRef = useRef(false);
+  const [confirmResolve, setConfirmResolve] = useState<{
+    ticketId: number;
+    ticketNumber: string;
+    actionLabel: string;
+    proceed: () => void;
+  } | null>(null);
+
   // Bump to force re-fetch after an inline resolve
   const [refreshKey, setRefreshKey] = useState<number>(0);
 
@@ -269,11 +352,37 @@ function TicketListPage(): React.ReactElement {
   }, [user, allTickets]);
 
   // Called by TimerCell when the user clicks the action button.
-  const handleInlineResolve = useCallback((ticketId: number, e: React.MouseEvent, _ticket?: TicketSummary, completeTimer?: () => void): void => {
+  // Always shows a confirmation dialog before executing the resolve/close.
+  const handleInlineResolve = useCallback((ticketId: number, e: React.MouseEvent, ticket?: TicketSummary, completeTimer?: () => void): void => {
     e.stopPropagation();
     e.preventDefault();
-    void executeResolve(ticketId, completeTimer);
-  }, [executeResolve]);
+
+    if (confirmOpenRef.current) return;
+
+    const t = ticket ?? allTickets.find((tk) => tk.id === ticketId);
+    if (!t) { void executeResolve(ticketId, completeTimer); return; }
+
+    const record = readAllTimerRecords().get(ticketId);
+    const type = record?.ticketType ?? inferTicketType(t.title);
+    const isAdmin = user?.role === 'ADMIN';
+    const actionLabel = (isAdmin && type === 'TASK') ? 'Close' : type === 'INCIDENT' ? 'Resolve' : 'Close';
+
+    pendingCompleteTimerRef.current = completeTimer ?? null;
+    confirmOpenRef.current = true;
+
+    setConfirmResolve({
+      ticketId,
+      ticketNumber: t.ticketNumber,
+      actionLabel,
+      proceed: () => {
+        const cb = pendingCompleteTimerRef.current;
+        pendingCompleteTimerRef.current = null;
+        confirmOpenRef.current = false;
+        setConfirmResolve(null);
+        void executeResolve(ticketId, cb ?? undefined);
+      },
+    });
+  }, [user, allTickets, executeResolve]);
 
   // Reset page on filter changes
   const handleFilter = (setter: (v: string) => void) => (value: string) => {
@@ -613,6 +722,21 @@ function TicketListPage(): React.ReactElement {
         <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
         </div>
+      )}
+
+      {/* Confirm-resolve dialog */}
+      {confirmResolve !== null && createPortal(
+        <ConfirmResolveModal
+          ticketNumber={confirmResolve.ticketNumber}
+          actionLabel={confirmResolve.actionLabel}
+          onConfirm={confirmResolve.proceed}
+          onCancel={() => {
+            pendingCompleteTimerRef.current = null;
+            confirmOpenRef.current = false;
+            setConfirmResolve(null);
+          }}
+        />,
+        document.body,
       )}
 
       {/* Inline resolve error */}
