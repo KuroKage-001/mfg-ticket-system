@@ -745,7 +745,7 @@ function TicketDetailPage(): React.ReactElement {
                       }}
                     />
                     {/* Overlay on hover */}
-                    <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-2">
+                    <div className="absolute inset-0 flex flex-col justify-end bg-linear-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-2">
                       <span className="text-white text-xs font-medium truncate leading-tight">
                         {att.originalName}
                       </span>
