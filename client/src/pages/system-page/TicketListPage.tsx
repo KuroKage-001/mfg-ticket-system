@@ -35,7 +35,7 @@ import {
 // Constants
 // ---------------------------------------------------------------------------
 
-const STATUS_OPTIONS = ['', 'OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED', 'CANCELLED'] as const;
+const STATUS_OPTIONS = ['', 'OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'] as const;
 const PRIORITY_OPTIONS = ['', 'LOW', 'MEDIUM', 'HIGH', 'URGENT'] as const;
 
 const STATUS_LABELS: Record<string, string> = {
@@ -44,7 +44,6 @@ const STATUS_LABELS: Record<string, string> = {
   IN_PROGRESS: 'In Progress',
   RESOLVED: 'Resolved',
   CLOSED: 'Closed',
-  CANCELLED: 'Cancelled',
 };
 
 const PRIORITY_LABELS: Record<string, string> = {
@@ -448,7 +447,6 @@ function TicketListPage(): React.ReactElement {
           <tr>
             <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Ticket #</th>
             <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">External ID</th>
-            <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Title</th>
             <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Status</th>
             <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Priority</th>
             <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">KB</th>
@@ -468,8 +466,6 @@ function TicketListPage(): React.ReactElement {
           {tickets.map((ticket) => {
             const record = timerRecords.get(ticket.id);
             const externalId = record?.externalId || ticket.title;
-            const titleMatch = /^\[([A-Z0-9]+)\]\s*/i.exec(ticket.title);
-            const cleanTitle = titleMatch ? ticket.title.replace(titleMatch[0], '') : ticket.title;
 
             const startTime = ticket.createdAt
               ? new Date(ticket.createdAt).toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
@@ -495,9 +491,6 @@ function TicketListPage(): React.ReactElement {
                   ) : (
                     <span className="text-xs text-gray-400">—</span>
                   )}
-                </td>
-                <td className="px-4 py-3 text-sm text-gray-800">
-                  <span className="line-clamp-2 max-w-xs">{cleanTitle}</span>
                 </td>
                 <td className="whitespace-nowrap px-4 py-3">
                   <TicketStatusBadge status={ticket.status} />
@@ -546,12 +539,12 @@ function TicketListPage(): React.ReactElement {
           <tr>
             <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Ticket #</th>
             <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Type</th>
-            <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Title</th>
             <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Status</th>
             <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Priority</th>
             <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">KB</th>
             <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Assignee</th>
-            <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Created</th>
+            <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Start Time</th>
+            <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Resolved/Closed Time</th>
             <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Timer</th>
           </tr>
         </thead>
@@ -562,9 +555,15 @@ function TicketListPage(): React.ReactElement {
             const inferredType: TicketType = record
               ? record.ticketType
               : inferTicketType(ticket.title);
-            // Strip any legacy "[INC...]" bracket prefix from the display title.
-            const titleMatch = /^\[([A-Z0-9]+)\]\s*/i.exec(ticket.title);
-            const cleanTitle = titleMatch ? ticket.title.replace(titleMatch[0], '') : ticket.title;
+
+            const startTime = ticket.createdAt
+              ? new Date(ticket.createdAt).toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+              : '—';
+
+            const endTimeRaw = ticket.resolvedAt ?? ticket.closedAt;
+            const endTime = endTimeRaw
+              ? new Date(endTimeRaw).toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+              : '—';
 
             return (
               <tr
@@ -577,9 +576,6 @@ function TicketListPage(): React.ReactElement {
                   <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ring-inset ${TYPE_BADGE[inferredType]}`}>
                     {ticketTypeLabel(inferredType)}
                   </span>
-                </td>
-                <td className="px-4 py-3 text-sm text-gray-800">
-                  <span className="line-clamp-2 max-w-xs">{cleanTitle}</span>
                 </td>
                 <td className="whitespace-nowrap px-4 py-3">
                   <TicketStatusBadge status={ticket.status} />
@@ -599,11 +595,8 @@ function TicketListPage(): React.ReactElement {
                 <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">
                   {ticket.assignedToName ?? '—'}
                 </td>
-                <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">
-                  {new Date(ticket.createdAt).toLocaleDateString(undefined, {
-                    year: 'numeric', month: 'short', day: 'numeric',
-                  })}
-                </td>
+                <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-500">{startTime}</td>
+                <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-500">{endTime}</td>
                 <td className="whitespace-nowrap px-4 py-3" onClick={(e) => e.stopPropagation()}>
                   <TimerCell
                     ticket={ticket}
