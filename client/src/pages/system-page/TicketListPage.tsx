@@ -14,7 +14,6 @@
  */
 
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/system-hooks/useAuth';
 import { useTickets } from '../../hooks/system-hooks/useTickets';
@@ -71,78 +70,6 @@ const TYPE_BADGE: Record<TicketType, string> = {
   REQUEST:  'bg-purple-100 text-purple-700 ring-purple-200',
   GENERAL:  'bg-gray-100 text-gray-500 ring-gray-200',
 };
-
-// ---------------------------------------------------------------------------
-// ConfirmResolveModal — shown when the current user is about to resolve a
-// ticket that is not assigned to them.
-// ---------------------------------------------------------------------------
-
-interface ConfirmResolveModalProps {
-  ticketNumber: string;
-  assigneeName: string | null;
-  onConfirm: () => void;
-  onCancel: () => void;
-}
-
-function ConfirmResolveModal({ ticketNumber, assigneeName, onConfirm, onCancel }: ConfirmResolveModalProps): React.ReactElement {
-  const block = (e: React.MouseEvent): void => { e.stopPropagation(); e.preventDefault(); };
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="confirm-resolve-title"
-      onClick={block}
-      onMouseDown={block}
-    >
-      {/* Backdrop — clicking dismisses WITHOUT resolving */}
-      <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-        onClick={(e) => { block(e); onCancel(); }}
-        onMouseDown={block}
-        aria-hidden="true"
-      />
-      {/* Panel */}
-      <div className="relative z-10 w-full max-w-sm rounded-xl bg-white shadow-2xl ring-1 ring-gray-200 p-6" onClick={block} onMouseDown={block}>
-        <div className="flex items-start gap-3 mb-4">
-          <div className="shrink-0 flex items-center justify-center h-10 w-10 rounded-full bg-amber-100">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-            </svg>
-          </div>
-          <div>
-            <h2 id="confirm-resolve-title" className="text-sm font-semibold text-gray-900">
-              Resolve ticket {ticketNumber}?
-            </h2>
-            <p className="mt-1 text-sm text-gray-500">
-              This ticket is assigned to{' '}
-              <span className="font-medium text-gray-700">{assigneeName ?? 'another user'}</span>.
-              Resolving it will log your account as the actor in the activity feed.
-            </p>
-            <p className="mt-1.5 text-xs text-gray-400">This action will only be recorded after you click confirm.</p>
-          </div>
-        </div>
-        <div className="flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={(e) => { block(e); onCancel(); }}
-            className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-400 transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={(e) => { block(e); onConfirm(); }}
-            className="px-3 py-1.5 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 transition-colors"
-          >
-            Yes, Resolve
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // TimerCell — wraps TicketTimer per row so hooks can be called per-ticket.
@@ -277,20 +204,6 @@ function TicketListPage(): React.ReactElement {
   const [, setResolvingId] = useState<number | null>(null);
   const [resolveError, setResolveError] = useState<string>('');
 
-  // Ref to hold the completeTimer callback — stored here so it survives
-  // re-renders and can only be invoked from the explicit confirm button.
-  const pendingCompleteTimerRef = useRef<(() => void) | null>(null);
-  // Guard: true while confirmation dialog is open — blocks any re-trigger
-  const confirmOpenRef = useRef(false);
-
-  // Confirmation dialog state
-  const [confirmResolve, setConfirmResolve] = useState<{
-    ticketId: number;
-    ticketNumber: string;
-    assigneeName: string | null;
-    proceed: () => void;
-  } | null>(null);
-
   // Bump to force re-fetch after an inline resolve
   const [refreshKey, setRefreshKey] = useState<number>(0);
 
@@ -356,44 +269,11 @@ function TicketListPage(): React.ReactElement {
   }, [user, allTickets]);
 
   // Called by TimerCell when the user clicks the action button.
-  // Uses refs to ensure completeTimer is NEVER called unless the user
-  // explicitly clicks the confirm button — clicking outside the modal
-  // or cancelling will never trigger a resolve.
-  const handleInlineResolve = useCallback((ticketId: number, e: React.MouseEvent, ticket?: TicketSummary, completeTimer?: () => void): void => {
+  const handleInlineResolve = useCallback((ticketId: number, e: React.MouseEvent, _ticket?: TicketSummary, completeTimer?: () => void): void => {
     e.stopPropagation();
     e.preventDefault();
-
-    // If a confirmation is already open, ignore all further clicks
-    if (confirmOpenRef.current) return;
-
-    const t = ticket ?? allTickets.find((tk) => tk.id === ticketId);
-    const isOwnTicket = t?.assignedToId === user?.id;
-
-    if (!isOwnTicket && t) {
-      // Store completeTimer in a ref — it will ONLY be read inside the
-      // explicit confirm handler, never on cancel or outside click.
-      pendingCompleteTimerRef.current = completeTimer ?? null;
-      confirmOpenRef.current = true;
-
-      setConfirmResolve({
-        ticketId,
-        ticketNumber: t.ticketNumber,
-        assigneeName: t.assignedToName ?? null,
-        proceed: () => {
-          // Grab the stored callback and clear refs BEFORE any async work
-          const cb = pendingCompleteTimerRef.current;
-          pendingCompleteTimerRef.current = null;
-          confirmOpenRef.current = false;
-          setConfirmResolve(null);
-          void executeResolve(ticketId, cb ?? undefined);
-        },
-      });
-      return;
-    }
-
-    // Own ticket — no confirmation needed
     void executeResolve(ticketId, completeTimer);
-  }, [user, allTickets, executeResolve]);
+  }, [executeResolve]);
 
   // Reset page on filter changes
   const handleFilter = (setter: (v: string) => void) => (value: string) => {
@@ -733,22 +613,6 @@ function TicketListPage(): React.ReactElement {
         <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
         </div>
-      )}
-
-      {/* Confirm-resolve dialog — rendered in a portal so clicks can't leak to table rows */}
-      {confirmResolve !== null && createPortal(
-        <ConfirmResolveModal
-          ticketNumber={confirmResolve.ticketNumber}
-          assigneeName={confirmResolve.assigneeName}
-          onConfirm={confirmResolve.proceed}
-          onCancel={() => {
-            // Cancel: clear refs — completeTimer is intentionally NOT called
-            pendingCompleteTimerRef.current = null;
-            confirmOpenRef.current = false;
-            setConfirmResolve(null);
-          }}
-        />,
-        document.body
       )}
 
       {/* Inline resolve error */}
