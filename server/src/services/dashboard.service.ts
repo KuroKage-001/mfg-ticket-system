@@ -341,14 +341,15 @@ export async function getClosedRequestsMonthly(
       Array<{ month: string; assignee_name: string; cnt: bigint }>
     >`
       SELECT
-        DATE_FORMAT(COALESCE(t.closed_at, t.updated_at), '%Y-%m') AS month,
-        COALESCE(u.full_name, 'Unassigned')                       AS assignee_name,
-        COUNT(*)                                                   AS cnt
+        DATE_FORMAT(t.closed_at, '%Y-%m')             AS month,
+        COALESCE(u.full_name, 'Unassigned')           AS assignee_name,
+        COUNT(*)                                       AS cnt
       FROM tickets t
       LEFT JOIN users u ON u.id = t.assigned_to_id
       WHERE
         t.status = 'CLOSED'
-        AND YEAR(COALESCE(t.closed_at, t.updated_at)) = ${year}
+        AND t.closed_at IS NOT NULL
+        AND YEAR(t.closed_at) = ${year}
       GROUP BY month, assignee_name
       ORDER BY month ASC, assignee_name ASC
     `;
@@ -394,13 +395,14 @@ export async function getClosedRequestsDaily(
       Array<{ day: string; cnt: bigint }>
     >`
       SELECT
-        DATE_FORMAT(COALESCE(t.closed_at, t.updated_at), '%Y-%m-%d') AS day,
-        COUNT(*)                                                      AS cnt
+        DATE_FORMAT(t.closed_at, '%Y-%m-%d') AS day,
+        COUNT(*)                             AS cnt
       FROM tickets t
       WHERE
         t.status = 'CLOSED'
-        AND YEAR(COALESCE(t.closed_at, t.updated_at))  = ${year}
-        AND MONTH(COALESCE(t.closed_at, t.updated_at)) = ${month}
+        AND t.closed_at IS NOT NULL
+        AND YEAR(t.closed_at)  = ${year}
+        AND MONTH(t.closed_at) = ${month}
       GROUP BY day
       ORDER BY day ASC
     `;
@@ -464,8 +466,9 @@ export async function getClosedRequestsTopResolvers(
             LEFT JOIN users u ON u.id = t.assigned_to_id
             WHERE
               t.status = 'CLOSED'
-              AND YEAR(COALESCE(t.closed_at, t.updated_at))  = ${year}
-              AND MONTH(COALESCE(t.closed_at, t.updated_at)) = ${month}
+              AND t.closed_at IS NOT NULL
+              AND YEAR(t.closed_at)  = ${year}
+              AND MONTH(t.closed_at) = ${month}
             GROUP BY assignee_name
             ORDER BY cnt DESC
           `
@@ -477,7 +480,8 @@ export async function getClosedRequestsTopResolvers(
             LEFT JOIN users u ON u.id = t.assigned_to_id
             WHERE
               t.status = 'CLOSED'
-              AND YEAR(COALESCE(t.closed_at, t.updated_at)) = ${year}
+              AND t.closed_at IS NOT NULL
+              AND YEAR(t.closed_at) = ${year}
             GROUP BY assignee_name
             ORDER BY cnt DESC
           `

@@ -39,6 +39,7 @@ function SkeletonRow(): React.ReactElement {
       <td className="px-4 py-3"><div className="h-5 bg-gray-200 rounded-full w-20" /></td>
       <td className="px-4 py-3"><div className="h-5 bg-gray-200 rounded-full w-16" /></td>
       <td className="px-4 py-3"><div className="h-3 bg-gray-200 rounded w-24" /></td>
+      <td className="px-4 py-3"><div className="h-3 bg-gray-200 rounded w-20" /></td>
     </tr>
   );
 }
@@ -47,13 +48,14 @@ function SkeletonRow(): React.ReactElement {
 // Status tickets modal
 // ---------------------------------------------------------------------------
 
-type ModalStatus = 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED' | 'URGENT' | 'UNASSIGNED' | 'MY_ASSIGNED';
+type ModalStatus = 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED' | 'CANCELLED' | 'URGENT' | 'UNASSIGNED' | 'MY_ASSIGNED';
 
 const STATUS_LABELS: Record<ModalStatus, string> = {
   OPEN: 'Open',
   IN_PROGRESS: 'In Progress',
   RESOLVED: 'Resolved (INC)',
   CLOSED: 'Closed (SCTASK/RITM)',
+  CANCELLED: 'Cancelled',
   URGENT: 'Urgent',
   UNASSIGNED: 'Unassigned',
   MY_ASSIGNED: 'My Assigned',
@@ -87,6 +89,7 @@ function StatusTicketsModal({ status, onClose }: StatusTicketsModalProps): React
             case 'IN_PROGRESS': return { status: 'IN_PROGRESS', page, limit };
             case 'RESOLVED':    return { status: 'RESOLVED',    page, limit };
             case 'CLOSED':      return { status: 'CLOSED',      page, limit };
+            case 'CANCELLED':   return { status: 'CANCELLED',   page, limit };
             case 'URGENT':      return { priority: 'URGENT',    page, limit };
             case 'UNASSIGNED':  return { unassigned: true,      page, limit };
             case 'MY_ASSIGNED': return { assignedToId: user?.id, page, limit };
@@ -129,6 +132,7 @@ function StatusTicketsModal({ status, onClose }: StatusTicketsModalProps): React
     IN_PROGRESS: 'text-amber-600',
     RESOLVED: 'text-emerald-600',
     CLOSED: 'text-gray-600',
+    CANCELLED: 'text-rose-600',
     URGENT: 'text-red-600',
     UNASSIGNED: 'text-orange-600',
     MY_ASSIGNED: 'text-indigo-600',
@@ -172,7 +176,7 @@ function StatusTicketsModal({ status, onClose }: StatusTicketsModalProps): React
             <table className="min-w-full divide-y divide-gray-50">
               <thead className="bg-gray-50 sticky top-0">
                 <tr>
-                  {['Ticket #', 'Title', 'Priority', 'Assigned To', 'Created'].map((h) => (
+                  {['Ticket #', 'Title', 'Status', 'Priority', 'Assigned To', 'Created'].map((h) => (
                     <th key={h} className="px-4 py-2.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-widest">{h}</th>
                   ))}
                 </tr>
@@ -192,7 +196,7 @@ function StatusTicketsModal({ status, onClose }: StatusTicketsModalProps): React
             <table className="min-w-full divide-y divide-gray-50">
               <thead className="bg-gray-50 sticky top-0 z-10">
                 <tr>
-                  {['Ticket #', 'Title', 'Priority', 'Assigned To', 'Created'].map((h) => (
+                  {['Ticket #', 'Title', 'Status', 'Priority', 'Assigned To', 'Created'].map((h) => (
                     <th key={h} className="px-4 py-2.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-widest">{h}</th>
                   ))}
                 </tr>
@@ -217,6 +221,9 @@ function StatusTicketsModal({ status, onClose }: StatusTicketsModalProps): React
                       >
                         {ticket.title}
                       </Link>
+                    </td>
+                    <td className="px-4 py-3">
+                      <TicketStatusBadge status={ticket.status} />
                     </td>
                     <td className="px-4 py-3">
                       <TicketPriorityBadge priority={ticket.priority} />
@@ -368,6 +375,14 @@ function IconUser({ className }: { className?: string }): React.ReactElement {
   );
 }
 
+function IconCancel({ className }: { className?: string }): React.ReactElement {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+    </svg>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // DashboardPage
 // ---------------------------------------------------------------------------
@@ -417,7 +432,7 @@ function DashboardPage(): React.ReactElement {
           <div className="mt-1 h-4 bg-gray-100 rounded w-64 animate-pulse" />
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mb-8">
-          {Array.from({ length: 7 }).map((_, i) => <SkeletonCard key={i} />)}
+          {Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)}
         </div>
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
           <div className="px-5 py-4 border-b border-gray-100">
@@ -497,6 +512,15 @@ function DashboardPage(): React.ReactElement {
       iconBg: 'bg-gray-100',
       icon: <IconLock className="h-5 w-5 text-gray-400" />,
       onClick: () => { setActiveModal('CLOSED'); },
+    },
+    {
+      cardKey: 'Cancelled',
+      label: 'Cancelled',
+      value: summary.cancelled,
+      accent: 'text-rose-600',
+      iconBg: 'bg-rose-50',
+      icon: <IconCancel className="h-5 w-5 text-rose-400" />,
+      onClick: () => { setActiveModal('CANCELLED'); },
     },
     {
       cardKey: 'Urgent',
