@@ -1,7 +1,3 @@
-/**
- * PATCH  /api/categories/:id  — update name / sortOrder / isActive (admin only)
- * DELETE /api/categories/:id  — hard-delete a category (admin only)
- */
 import { NextRequest, NextResponse } from "next/server";
 import { authGuard } from "@/middleware/auth-guard";
 import { requireRole } from "@/middleware/role-guard";
@@ -9,17 +5,20 @@ import { handleApiError } from "@/utils/handle-api-error";
 import { ApiError } from "@/utils/api-error";
 import prisma from "@/lib/prisma";
 
+type RouteParams = { params: Promise<{ id: string }> };
+
 // ─── PATCH /api/categories/:id ───────────────────────────────────────────────
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: RouteParams
 ): Promise<NextResponse> {
   try {
     const actor = await authGuard();
     requireRole(actor, "ADMIN");
 
-    const id = parseInt(params.id, 10);
+    const { id: idParam } = await params;
+    const id = parseInt(idParam, 10);
     if (isNaN(id)) throw new ApiError(400, "Invalid category ID.");
 
     const existing = await prisma.ticketCategory.findUnique({ where: { id } });
@@ -44,7 +43,6 @@ export async function PATCH(
       if (body.name.trim().length > 300) {
         throw new ApiError(400, "name must be 300 characters or fewer.", "name");
       }
-      // Uniqueness check — exclude current record
       const conflict = await prisma.ticketCategory.findFirst({
         where: { name: body.name.trim(), NOT: { id } },
       });
@@ -95,13 +93,14 @@ export async function PATCH(
 
 export async function DELETE(
   _req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: RouteParams
 ): Promise<NextResponse> {
   try {
     const actor = await authGuard();
     requireRole(actor, "ADMIN");
 
-    const id = parseInt(params.id, 10);
+    const { id: idParam } = await params;
+    const id = parseInt(idParam, 10);
     if (isNaN(id)) throw new ApiError(400, "Invalid category ID.");
 
     const existing = await prisma.ticketCategory.findUnique({ where: { id } });
