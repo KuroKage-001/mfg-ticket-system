@@ -11,6 +11,7 @@ import UserListPage from './pages/admin-pages/UserListPage';
 import CreateUserPage from './pages/admin-pages/CreateUserPage';
 import EditUserPage from './pages/admin-pages/EditUserPage';
 import KnowledgeBasePage from './pages/admin-pages/KnowledgeBasePage';
+import CategoriesPage from './pages/admin-pages/CategoriesPage';
 
 const router = createBrowserRouter([
   // Root redirect
@@ -41,7 +42,8 @@ const router = createBrowserRouter([
       { path: '/admin/users', element: <UserListPage /> },
       { path: '/admin/users/new', element: <CreateUserPage /> },
       { path: '/admin/users/:id', element: <EditUserPage /> },
-      { path: '/admin/kb', element: <KnowledgeBasePage /> },
+      { path: '/admin/kb',         element: <KnowledgeBasePage /> },
+      { path: '/admin/categories', element: <CategoriesPage /> },
     ],
   },
 ]);

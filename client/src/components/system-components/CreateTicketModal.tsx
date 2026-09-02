@@ -12,6 +12,8 @@ import { useAuth } from '../../hooks/system-hooks/useAuth';
 import { createTicket, uploadAttachments } from '../../services/client-api-services/ticket.service';
 import { listUsers } from '../../services/admin-api-services/user.service';
 import { listKBArticles } from '../../services/admin-api-services/kb.service';
+import { listCategories } from '../../services/admin-api-services/category.service';
+import type { TicketCategory } from '../../services/admin-api-services/category.service';
 import type { KBArticle } from '../../services/admin-api-services/kb.service';
 import type { ApiError } from '../../config/api.config';
 import type { SafeUser } from '../../services/system-api-services/auth.service';
@@ -25,17 +27,6 @@ import {
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
-
-const VALID_CATEGORIES = [
-  'Hardware',
-  'Software',
-  'Network',
-  'Access Request',
-  'Account Issue',
-  'Other',
-] as const;
-
-type Category = (typeof VALID_CATEGORIES)[number];
 
 type ManufacturingSite = 'ADCV' | 'ADGT' | 'ADPG' | 'ADTH';
 
@@ -148,7 +139,12 @@ function CreateTicketModal({ onClose, onCreated }: CreateTicketModalProps): Reac
   const [attachments, setAttachments] = useState<File[]>([]);
   const [attachmentPreviews, setAttachmentPreviews] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [category, setCategory] = useState<Category | ''>('');
+  const [category, setCategory] = useState<string>('');
+  const [categorySearch, setCategorySearch] = useState<string>('');
+  const [categoryOpen, setCategoryOpen] = useState<boolean>(false);
+  const [categories, setCategories] = useState<TicketCategory[]>([]);
+  const [isLoadingCategories, setIsLoadingCategories] = useState<boolean>(false);
+  const categoryRef = useRef<HTMLDivElement>(null);
   const [priority, setPriority] = useState<PriorityValue | ''>('');
   const [contactMethod, setContactMethod] = useState<ContactMethodValue | null>(null);
   const [manufacturingSite, setManufacturingSite] = useState<ManufacturingSite | ''>('');
@@ -210,6 +206,29 @@ function CreateTicketModal({ onClose, onCreated }: CreateTicketModalProps): Reac
       .finally(() => { if (!cancelled) setIsLoadingKb(false); });
     return () => { cancelled = true; };
   }, [usedKnowledgeBase, kbArticles.length]);
+
+  // Load categories on mount
+  useEffect(() => {
+    let cancelled = false;
+    setIsLoadingCategories(true);
+    listCategories()
+      .then((data) => { if (!cancelled) setCategories(data); })
+      .catch(() => { if (!cancelled) setCategories([]); })
+      .finally(() => { if (!cancelled) setIsLoadingCategories(false); });
+    return () => { cancelled = true; };
+  }, []);
+
+  // Close category dropdown on outside click
+  useEffect(() => {
+    if (!categoryOpen) return;
+    const handler = (e: MouseEvent): void => {
+      if (categoryRef.current && !categoryRef.current.contains(e.target as Node)) {
+        setCategoryOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [categoryOpen]);
 
   const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
   const MAX_FILES = 5;
@@ -295,7 +314,7 @@ function CreateTicketModal({ onClose, onCreated }: CreateTicketModalProps): Reac
       const dto = {
         title: resolvedTitle,
         description: resolvedDescription.trim() || extId,
-        category,
+        category: category as string,
         priority: priority as string,
         ...(usedKnowledgeBase ? { usedKnowledgeBase: true } : {}),
         ...(contactMethod !== null ? { contactMethod } : {}),
@@ -495,26 +514,100 @@ function CreateTicketModal({ onClose, onCreated }: CreateTicketModalProps): Reac
             )}
           </div>
 
-          {/* Category + Priority — side by side */}
+          {/* Problem Category + Priority — side by side */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Category */}
+            {/* Problem Category — searchable combobox */}
             <div>
-              <label htmlFor="ct-category" className="block text-sm font-medium text-gray-700 mb-1">
-                Category <span className="text-red-500">*</span>
+              <label htmlFor="ct-category-search" className="block text-sm font-medium text-gray-700 mb-1">
+                Problem Category <span className="text-red-500">*</span>
               </label>
-              <select
-                id="ct-category"
-                value={category}
-                onChange={(e) => { setCategory(e.target.value as Category | ''); }}
-                disabled={isSubmitting}
-                aria-invalid={fieldErrors.category ? 'true' : 'false'}
-                className={`${inputBase} ${fieldErrors.category ? inputError : inputNormal}`}
-              >
-                <option value="">Select a category…</option>
-                {VALID_CATEGORIES.map((cat) => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ))}
-              </select>
+              <div ref={categoryRef} className="relative">
+                {/* Selected value display / search input */}
+                <div
+                  className={`flex items-center gap-1.5 w-full rounded-md border px-3 py-2 text-sm shadow-sm cursor-text transition-colors
+                    ${fieldErrors.category ? 'border-red-400 ring-2 ring-red-400' : 'border-gray-300'}
+                    ${isSubmitting ? 'bg-gray-50 cursor-not-allowed' : 'bg-white'}`}
+                  onClick={() => { if (!isSubmitting) { setCategoryOpen(true); } }}
+                >
+                  {category && !categoryOpen ? (
+                    <>
+                      <span className="flex-1 text-gray-900 truncate text-xs">{category}</span>
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setCategory(''); setCategorySearch(''); }}
+                        disabled={isSubmitting}
+                        className="shrink-0 text-gray-400 hover:text-gray-600 disabled:opacity-40"
+                        aria-label="Clear category"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                          <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                        </svg>
+                      </button>
+                    </>
+                  ) : (
+                    <input
+                      id="ct-category-search"
+                      type="text"
+                      value={categoryOpen ? categorySearch : (category || '')}
+                      onChange={(e) => { setCategorySearch(e.target.value); setCategoryOpen(true); }}
+                      onFocus={() => { if (!isSubmitting) { setCategoryOpen(true); setCategorySearch(''); } }}
+                      disabled={isSubmitting}
+                      placeholder={isLoadingCategories ? 'Loading…' : 'Search problem category…'}
+                      aria-autocomplete="list"
+                      aria-expanded={categoryOpen}
+                      aria-haspopup="listbox"
+                      autoComplete="off"
+                      className="flex-1 min-w-0 bg-transparent focus:outline-none text-gray-900 placeholder-gray-400 text-sm disabled:cursor-not-allowed"
+                    />
+                  )}
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 shrink-0 text-gray-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+
+                {/* Dropdown */}
+                {categoryOpen && !isSubmitting && (
+                  <div
+                    role="listbox"
+                    aria-label="Problem categories"
+                    className="absolute z-30 mt-1 w-full max-h-56 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg"
+                  >
+                    {(() => {
+                      const term = categorySearch.toLowerCase();
+                      const filtered = categories.filter((c) =>
+                        c.name.toLowerCase().includes(term),
+                      );
+                      if (isLoadingCategories) {
+                        return (
+                          <div className="px-3 py-4 text-center text-xs text-gray-400">Loading categories…</div>
+                        );
+                      }
+                      if (filtered.length === 0) {
+                        return (
+                          <div className="px-3 py-4 text-center text-xs text-gray-400">No categories match "{categorySearch}"</div>
+                        );
+                      }
+                      return filtered.map((c) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          role="option"
+                          aria-selected={category === c.name}
+                          onClick={() => {
+                            setCategory(c.name);
+                            setCategorySearch('');
+                            setCategoryOpen(false);
+                          }}
+                          className={`flex w-full items-start px-3 py-2 text-left text-xs transition-colors hover:bg-blue-50 focus:bg-blue-50 focus:outline-none
+                            ${category === c.name ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}`}
+                        >
+                          {c.name}
+                        </button>
+                      ));
+                    })()}
+                  </div>
+                )}
+              </div>
               {fieldErrors.category && (
                 <p role="alert" className="mt-1 text-xs text-red-600">{fieldErrors.category}</p>
               )}

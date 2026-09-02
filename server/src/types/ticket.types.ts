@@ -7,27 +7,12 @@ export type ManufacturingSite = "ADCV" | "ADGT" | "ADPG" | "ADTH";
 
 export const VALID_CONTACT_METHODS: ContactMethod[] = ["EMAIL", "PHONE", "TEAMS"];
 export const VALID_MANUFACTURING_SITES: ManufacturingSite[] = ["ADCV", "ADGT", "ADPG", "ADTH"];
-export type TicketCategory =
-  | "Hardware"
-  | "Software"
-  | "Network"
-  | "Access Request"
-  | "Account Issue"
-  | "Other";
-
-export const VALID_CATEGORIES: TicketCategory[] = [
-  "Hardware",
-  "Software",
-  "Network",
-  "Access Request",
-  "Account Issue",
-  "Other",
-];
+export type TicketCategory = string;
 
 export interface CreateTicketDto {
   title: string;
   description: string;
-  category: TicketCategory;
+  category: string;
   priority: Priority;
   assignedToId?: number;
   usedKnowledgeBase?: boolean;
@@ -38,7 +23,7 @@ export interface CreateTicketDto {
 export interface UpdateTicketDto {
   title?: string;
   description?: string;
-  category?: TicketCategory;
+  category?: string;
   priority?: Priority;
 }
 

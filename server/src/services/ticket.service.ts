@@ -20,11 +20,10 @@ import type {
   TicketDetail,
   Priority,
   Status,
-  TicketCategory,
   ContactMethod,
   ManufacturingSite,
 } from "../types/ticket.types";
-import { VALID_CATEGORIES as CATEGORIES, VALID_CONTACT_METHODS, VALID_MANUFACTURING_SITES } from "../types/ticket.types";
+import { VALID_CONTACT_METHODS, VALID_MANUFACTURING_SITES } from "../types/ticket.types";
 import type { PaginatedResult } from "../types/pagination.types";
 import type { SessionUser } from "../types/session.types";
 
@@ -61,12 +60,11 @@ function validateDescription(value: unknown): void {
 }
 
 function validateCategory(value: unknown): void {
-  if (!(CATEGORIES as string[]).includes(value as string)) {
-    throw new ApiError(
-      400,
-      `category must be one of: ${CATEGORIES.join(", ")}.`,
-      "category"
-    );
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new ApiError(400, "category is required.", "category");
+  }
+  if (value.trim().length > 300) {
+    throw new ApiError(400, "category must be 300 characters or fewer.", "category");
   }
 }
 
@@ -475,7 +473,7 @@ export async function updateTicket(
   if (
     "category" in dto &&
     dto.category !== undefined &&
-    dto.category !== (current.category as TicketCategory)
+    dto.category !== current.category
   ) {
     data.category = dto.category;
     const oldValue = current.category;
