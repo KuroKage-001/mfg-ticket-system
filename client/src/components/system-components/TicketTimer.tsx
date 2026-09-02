@@ -164,21 +164,21 @@ function TicketTimer({ ticketId, compact = false, onComplete, onStart, externalT
   // ── Running ─────────────────────────────────────────────────────────────
   if (compact) {
     return (
-      <div className="flex items-center gap-1.5">
-        <span className="relative flex h-2 w-2" aria-hidden="true">
+      <div className="flex items-center gap-1.5 min-w-max">
+        <span className="relative flex h-2 w-2 shrink-0" aria-hidden="true">
           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75" />
           <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500" />
         </span>
-        <span className="text-xs font-mono font-medium text-orange-700">
+        <span className="text-xs font-mono font-medium text-orange-700 tabular-nums">
           {formatDuration(elapsed)}
         </span>
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); handleComplete(); }}
           title={`${actionLabel} this ticket`}
-          className="ml-1 inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-xs font-medium bg-green-100 text-green-700 hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-green-500 transition-colors"
+          className="ml-1 inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-xs font-medium bg-green-100 text-green-700 hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-green-500 transition-colors whitespace-nowrap"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden="true">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
           </svg>
           {actionLabel}
@@ -194,7 +194,7 @@ function TicketTimer({ ticketId, compact = false, onComplete, onStart, externalT
           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75" />
           <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-orange-500" />
         </span>
-        <span className="font-mono text-base font-semibold text-orange-700">
+        <span className="font-mono text-base font-semibold text-orange-700 tabular-nums">
           {formatDuration(elapsed)}
         </span>
         <span className="text-sm text-gray-500">elapsed</span>

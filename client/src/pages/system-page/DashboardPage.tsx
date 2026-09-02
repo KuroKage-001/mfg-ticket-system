@@ -37,12 +37,16 @@ async function fetchAllTicketsForExport(): Promise<TicketSummaryItem[]> {
 
 const EXPORT_HEADERS = [
   'Ticket #',
-  'Title',
+  'External ID',
   'Status',
   'Priority',
   'Category',
+  'Manufacturing Site',
+  'Contact Method',
   'Used KB',
   'Assigned To',
+  'Resolved By',
+  'Closed By',
   'Created By (ID)',
   'Created At',
   'Updated At',
@@ -59,12 +63,16 @@ function ticketToRow(t: TicketSummaryItem): (string | number)[] {
 
   return [
     t.ticketNumber,
-    t.title,
+    t.title,           // title holds the raw external ID (e.g. INC0012345)
     t.status,
     t.priority,
     t.category,
+    t.manufacturingSite ?? '',
+    (t as TicketSummaryItem & { contactMethod?: string }).contactMethod ?? '',
     t.usedKnowledgeBase ? 'Yes' : 'No',
     t.assignedToName ?? 'Unassigned',
+    t.resolvedByName ?? '',
+    t.closedByName ?? '',
     t.createdById,
     fmt(t.createdAt),
     fmt(t.updatedAt),
@@ -141,13 +149,17 @@ function exportExcel(tickets: TicketSummaryItem[]): void {
 
   // Column widths
   ws['!cols'] = [
-    { wch: 14 }, // Ticket #
-    { wch: 45 }, // Title
+    { wch: 16 }, // Ticket #
+    { wch: 18 }, // External ID
     { wch: 14 }, // Status
     { wch: 10 }, // Priority
-    { wch: 12 }, // Category
+    { wch: 16 }, // Category
+    { wch: 18 }, // Manufacturing Site
+    { wch: 16 }, // Contact Method
     { wch: 9  }, // Used KB
     { wch: 24 }, // Assigned To
+    { wch: 24 }, // Resolved By
+    { wch: 24 }, // Closed By
     { wch: 14 }, // Created By ID
     { wch: 22 }, // Created At
     { wch: 22 }, // Updated At

@@ -541,7 +541,6 @@ function TicketListPage(): React.ReactElement {
         <thead className="bg-gray-50">
           <tr>
             <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Ticket #</th>
-            <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">External ID</th>
             <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Status</th>
             <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Priority</th>
             <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">KB</th>
@@ -553,7 +552,7 @@ function TicketListPage(): React.ReactElement {
             <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
               {type === 'INCIDENT' ? 'Resolved By' : 'Closed By'}
             </th>
-            <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 min-w-36">
               Timer
               <span className="ml-1 text-gray-400 font-normal normal-case">
                 ({type === 'INCIDENT' ? 'Resolve' : type === 'TASK' ? 'Close' : 'Done'})
@@ -581,15 +580,14 @@ function TicketListPage(): React.ReactElement {
                 onClick={() => void navigate(`/tickets/${ticket.id}`)}
                 className="cursor-pointer transition-colors hover:bg-blue-50"
               >
-                <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-blue-600">{ticket.ticketNumber}</td>
+                {/* Stacked: MFG number + external ID badge */}
                 <td className="whitespace-nowrap px-4 py-3">
+                  <span className="block text-sm font-medium text-blue-600">{ticket.ticketNumber}</span>
                   {externalId ? (
-                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-mono font-semibold ring-1 ring-inset ${TYPE_BADGE[type]}`}>
+                    <span className={`mt-0.5 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-mono font-semibold ring-1 ring-inset ${TYPE_BADGE[type]}`}>
                       {externalId}
                     </span>
-                  ) : (
-                    <span className="text-xs text-gray-400">—</span>
-                  )}
+                  ) : null}
                 </td>
                 <td className="whitespace-nowrap px-4 py-3">
                   <TicketStatusBadge status={ticket.status} />
@@ -622,7 +620,7 @@ function TicketListPage(): React.ReactElement {
                     ? (ticket.resolvedByName ?? <span className="text-gray-300">—</span>)
                     : (ticket.closedByName ?? <span className="text-gray-300">—</span>)}
                 </td>
-                <td className="whitespace-nowrap px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                <td className="whitespace-nowrap px-4 py-3 min-w-36" onClick={(e) => e.stopPropagation()}>
                   <TimerCell
                     ticket={ticket}
                     externalId={externalId}
@@ -651,7 +649,6 @@ function TicketListPage(): React.ReactElement {
         <thead className="bg-gray-50">
           <tr>
             <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Ticket #</th>
-            <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Type</th>
             <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Status</th>
             <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Priority</th>
             <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">KB</th>
@@ -660,7 +657,7 @@ function TicketListPage(): React.ReactElement {
             <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Start Time</th>
             <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Resolved/Closed Time</th>
             <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Resolved/Closed By</th>
-            <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Timer</th>
+            <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 min-w-36">Timer</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100 bg-white">
@@ -686,11 +683,19 @@ function TicketListPage(): React.ReactElement {
                 onClick={() => void navigate(`/tickets/${ticket.id}`)}
                 className="cursor-pointer transition-colors hover:bg-blue-50"
               >
-                <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-blue-600">{ticket.ticketNumber}</td>
+                {/* Stacked: MFG number + type badge + external ID */}
                 <td className="whitespace-nowrap px-4 py-3">
-                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ring-inset ${TYPE_BADGE[inferredType]}`}>
-                    {ticketTypeLabel(inferredType)}
-                  </span>
+                  <span className="block text-sm font-medium text-blue-600">{ticket.ticketNumber}</span>
+                  <div className="mt-0.5 flex items-center gap-1 flex-wrap">
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ring-inset ${TYPE_BADGE[inferredType]}`}>
+                      {ticketTypeLabel(inferredType)}
+                    </span>
+                    {(record?.externalId || ticket.title) && (
+                      <span className="inline-flex items-center text-xs font-mono text-gray-500">
+                        {record?.externalId || ticket.title}
+                      </span>
+                    )}
+                  </div>
                 </td>
                 <td className="whitespace-nowrap px-4 py-3">
                   <TicketStatusBadge status={ticket.status} />
@@ -724,7 +729,7 @@ function TicketListPage(): React.ReactElement {
                 <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-500">
                   {(ticket.resolvedByName ?? ticket.closedByName) ?? <span className="text-gray-300">—</span>}
                 </td>
-                <td className="whitespace-nowrap px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                <td className="whitespace-nowrap px-4 py-3 min-w-36" onClick={(e) => e.stopPropagation()}>
                   <TimerCell
                     ticket={ticket}
                     externalId={record?.externalId || ticket.title}
