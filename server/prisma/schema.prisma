@@ -18,6 +18,13 @@ enum ContactMethod {
   TEAMS
 }
 
+enum ManufacturingSite {
+  ADCV
+  ADGT
+  ADPG
+  ADTH
+}
+
 enum Priority {
   LOW
   MEDIUM
@@ -64,8 +71,9 @@ model Ticket {
   category            String    @db.VarChar(100)
   priority            Priority  @default(MEDIUM)
   status              Status    @default(OPEN)
-  usedKnowledgeBase   Boolean        @default(false) @map("used_knowledge_base")
-  contactMethod       ContactMethod? @map("contact_method")
+  usedKnowledgeBase   Boolean             @default(false) @map("used_knowledge_base")
+  contactMethod       ContactMethod?      @map("contact_method")
+  manufacturingSite   ManufacturingSite?  @map("manufacturing_site")
   createdById         Int            @map("created_by_id")
   assignedToId        Int?      @map("assigned_to_id")
   resolvedById        Int?      @map("resolved_by_id")

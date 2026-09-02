@@ -22,8 +22,9 @@ import type {
   Status,
   TicketCategory,
   ContactMethod,
+  ManufacturingSite,
 } from "../types/ticket.types";
-import { VALID_CATEGORIES as CATEGORIES, VALID_CONTACT_METHODS } from "../types/ticket.types";
+import { VALID_CATEGORIES as CATEGORIES, VALID_CONTACT_METHODS, VALID_MANUFACTURING_SITES } from "../types/ticket.types";
 import type { PaginatedResult } from "../types/pagination.types";
 import type { SessionUser } from "../types/session.types";
 
@@ -85,6 +86,16 @@ function validateContactMethod(value: unknown): void {
       400,
       `contactMethod must be one of: ${VALID_CONTACT_METHODS.join(", ")}.`,
       "contactMethod"
+    );
+  }
+}
+
+function validateManufacturingSite(value: unknown): void {
+  if (!(VALID_MANUFACTURING_SITES as string[]).includes(value as string)) {
+    throw new ApiError(
+      400,
+      `manufacturingSite must be one of: ${VALID_MANUFACTURING_SITES.join(", ")}.`,
+      "manufacturingSite"
     );
   }
 }
@@ -194,6 +205,9 @@ export async function createTicket(
   if (dto.contactMethod !== undefined) {
     validateContactMethod(dto.contactMethod);
   }
+  if (dto.manufacturingSite !== undefined) {
+    validateManufacturingSite(dto.manufacturingSite);
+  }
 
   // ── Assignee resolution ─────────────────────────────────────────────────────
   let resolvedAssignedToId: number | null = null;
@@ -234,6 +248,7 @@ export async function createTicket(
         status: resolvedAssignedToId !== null ? "IN_PROGRESS" : "OPEN",
         usedKnowledgeBase: dto.usedKnowledgeBase ?? false,
         contactMethod: dto.contactMethod ?? null,
+        manufacturingSite: dto.manufacturingSite ?? null,
         createdById: actor.id,
         assignedToId: resolvedAssignedToId,
       },
@@ -332,6 +347,7 @@ export async function listTickets(
         priority: true,
         status: true,
         usedKnowledgeBase: true,
+        manufacturingSite: true,
         // contactMethod is intentionally omitted here — the Prisma client
         // types are regenerated on server restart; the field is available
         // on TicketDetail (full fetch) which uses TICKET_DETAIL_INCLUDE.

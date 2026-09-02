@@ -28,6 +28,7 @@ export interface CreateTicketDto {
   assignedToId?: number;
   usedKnowledgeBase?: boolean;
   contactMethod?: string;
+  manufacturingSite?: string;
 }
 
 // ---------------------------------------------------------------------------

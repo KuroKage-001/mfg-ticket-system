@@ -22,6 +22,7 @@ export interface TicketSummary {
   priority: string;
   category: string;
   usedKnowledgeBase: boolean;
+  manufacturingSite: string | null;
   assignedToId: number | null;
   assignedToName: string | null;
   resolvedById: number | null;
@@ -70,6 +71,7 @@ export interface TicketDetail extends TicketSummary {
   description: string;
   usedKnowledgeBase: boolean;
   contactMethod: string | null;
+  manufacturingSite: string | null;
   resolvedAt: string | null;
   closedAt: string | null;
   createdBy: SafeUser;

@@ -134,6 +134,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     if (body.contactMethod !== undefined) {
       dto.contactMethod = body.contactMethod;
     }
+    if (body.manufacturingSite !== undefined) {
+      dto.manufacturingSite = body.manufacturingSite;
+    }
 
     const ticket = await Ticket_Service.createTicket(dto, user);
 

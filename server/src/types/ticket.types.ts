@@ -3,8 +3,10 @@ import type { SafeUser } from "./user.types";
 export type Priority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
 export type Status = "OPEN" | "IN_PROGRESS" | "RESOLVED" | "CLOSED" | "CANCELLED";
 export type ContactMethod = "EMAIL" | "PHONE" | "TEAMS";
+export type ManufacturingSite = "ADCV" | "ADGT" | "ADPG" | "ADTH";
 
 export const VALID_CONTACT_METHODS: ContactMethod[] = ["EMAIL", "PHONE", "TEAMS"];
+export const VALID_MANUFACTURING_SITES: ManufacturingSite[] = ["ADCV", "ADGT", "ADPG", "ADTH"];
 export type TicketCategory =
   | "Hardware"
   | "Software"
@@ -30,6 +32,7 @@ export interface CreateTicketDto {
   assignedToId?: number;
   usedKnowledgeBase?: boolean;
   contactMethod?: ContactMethod;
+  manufacturingSite?: ManufacturingSite;
 }
 
 export interface UpdateTicketDto {
@@ -58,6 +61,7 @@ export interface TicketSummary {
   priority: Priority;
   status: Status;
   usedKnowledgeBase: boolean;
+  manufacturingSite: ManufacturingSite | null;
   createdById: number;
   assignedToId: number | null;
   assignedToName: string | null;
@@ -101,6 +105,7 @@ export interface TicketDetail {
   status: Status;
   usedKnowledgeBase: boolean;
   contactMethod: ContactMethod | null;
+  manufacturingSite: ManufacturingSite | null;
   createdById: number;
   assignedToId: number | null;
   resolvedById: number | null;

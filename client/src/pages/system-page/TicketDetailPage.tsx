@@ -583,6 +583,18 @@ function TicketDetailPage(): React.ReactElement {
                     : <span className="text-sm text-gray-400">—</span>}
                 </dd>
               </div>
+              <div>
+                <dt className="text-xs font-medium text-gray-500">Manufacturing Site</dt>
+                <dd className="mt-0.5">
+                  {ticket.manufacturingSite !== null && ticket.manufacturingSite !== undefined ? (
+                    <span className="inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-200">
+                      {ticket.manufacturingSite}
+                    </span>
+                  ) : (
+                    <span className="text-sm text-gray-400">—</span>
+                  )}
+                </dd>
+              </div>
               {ticket.usedKnowledgeBase && (
                 <div className="sm:col-span-2">
                   <dt className="text-xs font-medium text-gray-500">KB Article Used</dt>

@@ -545,6 +545,7 @@ function TicketListPage(): React.ReactElement {
             <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Status</th>
             <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Priority</th>
             <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">KB</th>
+            <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Site</th>
             <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Start Time</th>
             <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
               {type === 'INCIDENT' ? 'Resolved Time' : 'Closed Time'}
@@ -605,6 +606,15 @@ function TicketListPage(): React.ReactElement {
                     <span className="text-xs text-gray-300">—</span>
                   )}
                 </td>
+                <td className="whitespace-nowrap px-4 py-3">
+                  {ticket.manufacturingSite ? (
+                    <span className="inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-200">
+                      {ticket.manufacturingSite}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-gray-300">—</span>
+                  )}
+                </td>
                 <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-500">{startTime}</td>
                 <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-500">{endTime}</td>
                 <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-500">
@@ -645,6 +655,7 @@ function TicketListPage(): React.ReactElement {
             <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Status</th>
             <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Priority</th>
             <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">KB</th>
+            <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Site</th>
             <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Assignee</th>
             <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Start Time</th>
             <th scope="col" className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Resolved/Closed Time</th>
@@ -691,6 +702,15 @@ function TicketListPage(): React.ReactElement {
                   {ticket.usedKnowledgeBase ? (
                     <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-inset ring-emerald-200" title="Resolved using Knowledge Base">
                       KB
+                    </span>
+                  ) : (
+                    <span className="text-xs text-gray-300">—</span>
+                  )}
+                </td>
+                <td className="whitespace-nowrap px-4 py-3">
+                  {ticket.manufacturingSite ? (
+                    <span className="inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-200">
+                      {ticket.manufacturingSite}
                     </span>
                   ) : (
                     <span className="text-xs text-gray-300">—</span>

@@ -37,6 +37,15 @@ const VALID_CATEGORIES = [
 
 type Category = (typeof VALID_CATEGORIES)[number];
 
+type ManufacturingSite = 'ADCV' | 'ADGT' | 'ADPG' | 'ADTH';
+
+const MANUFACTURING_SITES: { value: ManufacturingSite; label: string }[] = [
+  { value: 'ADCV', label: 'ADCV' },
+  { value: 'ADGT', label: 'ADGT' },
+  { value: 'ADPG', label: 'ADPG' },
+  { value: 'ADTH', label: 'ADTH' },
+];
+
 type PriorityValue = 'URGENT' | 'HIGH' | 'MEDIUM' | 'LOW';
 type ContactMethodValue = 'EMAIL' | 'PHONE' | 'TEAMS';
 
@@ -87,6 +96,7 @@ interface FieldErrors {
   category?: string;
   priority?: string;
   assignedToId?: string;
+  manufacturingSite?: string;
 }
 
 const TYPE_BADGE: Record<TicketType, string> = {
@@ -141,6 +151,7 @@ function CreateTicketModal({ onClose, onCreated }: CreateTicketModalProps): Reac
   const [category, setCategory] = useState<Category | ''>('');
   const [priority, setPriority] = useState<PriorityValue | ''>('');
   const [contactMethod, setContactMethod] = useState<ContactMethodValue | null>(null);
+  const [manufacturingSite, setManufacturingSite] = useState<ManufacturingSite | ''>('');
   const [assignedToId, setAssignedToId] = useState<string>('');
   const [usedKnowledgeBase, setUsedKnowledgeBase] = useState<boolean>(false);
 
@@ -266,6 +277,7 @@ function CreateTicketModal({ onClose, onCreated }: CreateTicketModalProps): Reac
     if (!externalTicketId.trim()) errors.externalTicketId = 'External Ticket ID is required.';
     if (!category)                errors.category  = 'Category is required.';
     if (!priority)                errors.priority  = 'Priority is required.';
+    if (!manufacturingSite)       errors.manufacturingSite = 'Manufacturing Site is required.';
     if (Object.keys(errors).length > 0) { setFieldErrors(errors); return; }
 
     const extId = externalTicketId.trim();
@@ -287,6 +299,7 @@ function CreateTicketModal({ onClose, onCreated }: CreateTicketModalProps): Reac
         priority: priority as string,
         ...(usedKnowledgeBase ? { usedKnowledgeBase: true } : {}),
         ...(contactMethod !== null ? { contactMethod } : {}),
+        ...(manufacturingSite !== '' ? { manufacturingSite } : {}),
         ...(assignedToId !== '' ? { assignedToId: Number(assignedToId) } : {}),
       } as Parameters<typeof createTicket>[0];
 
@@ -306,7 +319,7 @@ function CreateTicketModal({ onClose, onCreated }: CreateTicketModalProps): Reac
       const apiErr = err as ApiError;
       if (apiErr.field) {
         const knownFields: Array<keyof FieldErrors> = [
-          'externalTicketId', 'description', 'category', 'priority', 'assignedToId',
+          'externalTicketId', 'description', 'category', 'priority', 'assignedToId', 'manufacturingSite',
         ];
         if (knownFields.includes(apiErr.field as keyof FieldErrors)) {
           setFieldErrors({ [apiErr.field]: apiErr.message });
@@ -539,32 +552,58 @@ function CreateTicketModal({ onClose, onCreated }: CreateTicketModalProps): Reac
             </div>
           </div>
 
-          {/* Contact Method */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Contact Method <span className="text-gray-400 font-normal text-xs">(optional)</span>
-            </label>
-            <div className="flex gap-2" role="group" aria-label="Contact method">
-              {CONTACT_METHOD_OPTIONS.map((opt) => {
-                const isSelected = contactMethod === opt.value;
-                return (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => { setContactMethod(isSelected ? null : opt.value); }}
-                    disabled={isSubmitting}
-                    aria-pressed={isSelected}
-                    className={`inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50
-                      ${isSelected
-                        ? 'border-gray-800 bg-gray-900 text-white shadow-sm'
-                        : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-400'
-                      }`}
-                  >
-                    {opt.icon}
-                    {opt.label}
-                  </button>
-                );
-              })}
+          {/* Manufacturing Site + Contact Method — side by side */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Manufacturing Site */}
+            <div>
+              <label htmlFor="ct-manufacturing-site" className="block text-sm font-medium text-gray-700 mb-1">
+                Manufacturing Site <span className="text-red-500">*</span>
+              </label>
+              <select
+                id="ct-manufacturing-site"
+                value={manufacturingSite}
+                onChange={(e) => { setManufacturingSite(e.target.value as ManufacturingSite | ''); }}
+                disabled={isSubmitting}
+                aria-invalid={fieldErrors.manufacturingSite ? 'true' : 'false'}
+                className={`${inputBase} ${fieldErrors.manufacturingSite ? inputError : inputNormal}`}
+              >
+                <option value="">Select site…</option>
+                {MANUFACTURING_SITES.map((site) => (
+                  <option key={site.value} value={site.value}>{site.label}</option>
+                ))}
+              </select>
+              {fieldErrors.manufacturingSite && (
+                <p role="alert" className="mt-1 text-xs text-red-600">{fieldErrors.manufacturingSite}</p>
+              )}
+            </div>
+
+            {/* Contact Method */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Contact Method <span className="text-gray-400 font-normal text-xs">(optional)</span>
+              </label>
+              <div className="flex gap-2" role="group" aria-label="Contact method">
+                {CONTACT_METHOD_OPTIONS.map((opt) => {
+                  const isSelected = contactMethod === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => { setContactMethod(isSelected ? null : opt.value); }}
+                      disabled={isSubmitting}
+                      aria-pressed={isSelected}
+                      className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50
+                        ${isSelected
+                          ? 'border-gray-800 bg-gray-900 text-white shadow-sm'
+                          : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-400'
+                        }`}
+                    >
+                      {opt.icon}
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
 
