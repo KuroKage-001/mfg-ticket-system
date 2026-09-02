@@ -49,6 +49,7 @@ export interface TicketListQuery {
   priority?: Priority;
   search?: string;
   assignedToId?: number;
+  createdById?: number;
   /** When true, filter tickets where assignedToId IS NULL */
   unassigned?: boolean;
 }

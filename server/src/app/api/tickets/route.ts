@@ -84,7 +84,17 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       }
     }
 
-    const query: TicketListQuery = { page, limit, status, priority, search, assignedToId };
+    // Parse createdById
+    const createdByIdRaw = searchParams.get("createdById");
+    let createdById: number | undefined;
+    if (createdByIdRaw !== null) {
+      const parsed = parseInt(createdByIdRaw, 10);
+      if (!isNaN(parsed)) {
+        createdById = parsed;
+      }
+    }
+
+    const query: TicketListQuery = { page, limit, status, priority, search, assignedToId, createdById };
     if (searchParams.get("unassigned") === "true") {
       query.unassigned = true;
     }

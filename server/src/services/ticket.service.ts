@@ -318,6 +318,10 @@ export async function listTickets(
     where.assignedToId = query.assignedToId;
   }
 
+  if (query.createdById !== undefined) {
+    where.createdById = query.createdById;
+  }
+
   if (query.unassigned === true) {
     where.assignedToId = null;
   }

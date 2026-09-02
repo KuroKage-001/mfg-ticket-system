@@ -15,7 +15,7 @@
 
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/system-hooks/useAuth';
 import { useTickets } from '../../hooks/system-hooks/useTickets';
 import type { TicketSummary, TicketListQuery } from '../../services/system-api-services/ticket.service';
@@ -345,6 +345,7 @@ function readAllTimerRecords(): Map<number, StoredTimerRecord> {
 
 function TicketListPage(): React.ReactElement {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
 
   // Active tab
@@ -355,7 +356,21 @@ function TicketListPage(): React.ReactElement {
   const [priority, setPriority] = useState<string>('');
   const [search, setSearch] = useState<string>('');
   const [assignedToId, setAssignedToId] = useState<string>('');
+  // "My Tickets" — when true, only tickets created by the current user are shown
+  const [myTickets, setMyTickets] = useState<boolean>(false);
   const [page, setPage] = useState<number>(1);
+
+  // Read ?myTickets=1 from the URL on first mount so the banner link
+  // lands directly in the filtered view.
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('myTickets') === '1') {
+      setMyTickets(true);
+      setActiveTab('ALL');
+    }
+    // Only run on mount — location.search intentionally omitted from deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Inline resolve state
   const [, setResolvingId] = useState<number | null>(null);
@@ -389,6 +404,7 @@ function TicketListPage(): React.ReactElement {
     ...(status ? { status } : {}),
     ...(priority ? { priority } : {}),
     ...(search.trim() ? { search: search.trim() } : {}),
+    ...(myTickets && user?.id ? { createdById: user.id } : {}),
     ...(user?.role === 'ADMIN' && assignedToId.trim()
       ? { assignedToId: Number(assignedToId) }
       : {}),
@@ -493,6 +509,16 @@ function TicketListPage(): React.ReactElement {
   // Reset page on filter changes
   const handleFilter = (setter: (v: string) => void) => (value: string) => {
     setter(value);
+    setPage(1);
+  };
+
+  const handleMyTicketsToggle = (): void => {
+    setMyTickets((prev) => {
+      const next = !prev;
+      // My Tickets is a cross-type filter — always show in All tab
+      if (next) setActiveTab('ALL');
+      return next;
+    });
     setPage(1);
   };
 
@@ -847,6 +873,47 @@ function TicketListPage(): React.ReactElement {
               onChange={(e) => { handleFilter(setAssignedToId)(e.target.value); }}
               className={`${inputBase} w-36`}
             />
+          </div>
+        )}
+
+        {/* My Tickets toggle */}
+        <div className="flex flex-col gap-1">
+          <span className="text-xs font-medium text-gray-600">My Tickets</span>
+          <button
+            type="button"
+            onClick={handleMyTicketsToggle}
+            aria-pressed={myTickets}
+            className={[
+              'inline-flex items-center gap-1.5 rounded-md border px-3 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1',
+              myTickets
+                ? 'border-indigo-600 bg-indigo-600 text-white shadow-sm'
+                : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-400',
+            ].join(' ')}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+            {myTickets ? 'My Tickets ✓' : 'My Tickets'}
+          </button>
+        </div>
+
+        {/* Active filter pill — shown when My Tickets is on */}
+        {myTickets && (
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-transparent select-none">·</span>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 border border-indigo-200 pl-3 pr-1.5 py-1 text-xs font-medium text-indigo-700">
+              Showing tickets created by you
+              <button
+                type="button"
+                onClick={handleMyTicketsToggle}
+                aria-label="Clear My Tickets filter"
+                className="ml-0.5 flex h-4 w-4 items-center justify-center rounded-full text-indigo-400 hover:bg-indigo-200 hover:text-indigo-700 transition-colors"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </button>
+            </span>
           </div>
         )}
       </div>

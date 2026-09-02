@@ -91,6 +91,7 @@ export interface TicketListQuery {
   priority?: string;
   search?: string;
   assignedToId?: number;
+  createdById?: number;
   /** When true, fetches only tickets with no assignee */
   unassigned?: boolean;
 }
@@ -127,6 +128,7 @@ export async function listTickets(
   if (query.priority !== undefined) params.set('priority', query.priority);
   if (query.search !== undefined) params.set('search', query.search);
   if (query.assignedToId !== undefined) params.set('assignedToId', String(query.assignedToId));
+  if (query.createdById !== undefined) params.set('createdById', String(query.createdById));
   if (query.unassigned === true) params.set('unassigned', 'true');
 
   const queryString = params.toString();
