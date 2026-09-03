@@ -23,7 +23,7 @@ import {
   ResponsiveContainer, RadialBarChart, RadialBar, PolarAngleAxis,
   Cell,
 } from 'recharts';
-import html2canvas from 'html2canvas';
+import { exportImage } from '../../utilities/exportImage';
 import * as XLSXStyle from 'xlsx-js-style';
 import {
   getResolvedIncidentsMonthly,
@@ -222,49 +222,6 @@ function exportExcel(
   XLSXStyle.writeFile(wb, `resolved-incidents-${year}.xlsx`);
 }
 
-async function exportImage(
-  containerRef: React.RefObject<HTMLDivElement | null>,
-  format: 'png' | 'jpeg',
-  year: number,
-): Promise<void> {
-  if (!containerRef.current) return;
-  const canvas = await html2canvas(containerRef.current, {
-    backgroundColor: '#ffffff',
-    scale: 2,
-    useCORS: true,
-    logging: false,
-    onclone: (_doc, el) => {
-      // html2canvas v1 cannot parse oklch() (used by Tailwind v4 CSS vars).
-      // Walk every element in the clone and strip oklch values from inline styles.
-      el.querySelectorAll<HTMLElement>('*').forEach((node) => {
-        const s = node.style;
-        for (let i = s.length - 1; i >= 0; i--) {
-          const prop = s.item(i);
-          if (s.getPropertyValue(prop).includes('oklch')) {
-            s.removeProperty(prop);
-          }
-        }
-      });
-      // Also inject a style block that resets all Tailwind oklch CSS vars to
-      // safe sRGB equivalents so computed colors resolve correctly.
-      const style = _doc.createElement('style');
-      style.textContent = `*, *::before, *::after {
-        --tw-ring-color: rgba(59,130,246,0.5) !important;
-        --tw-shadow-color: rgba(0,0,0,0.1) !important;
-        color-scheme: light !important;
-      }`;
-      _doc.head.appendChild(style);
-    },
-  });
-  canvas.toBlob(
-    (blob) => {
-      if (blob) downloadBlob(blob, `resolved-incidents-${year}.${format}`);
-    },
-    `image/${format}`,
-    0.95,
-  );
-}
-
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -354,12 +311,12 @@ export default function ResolvedIncidentsChart({
   }, [rows, year, barData, assignees]);
 
   const handleExportPNG = useCallback((): void => {
-    void exportImage(chartContainerRef, 'png', year);
+    if (chartContainerRef.current) void exportImage(chartContainerRef.current, 'png', `resolved-incidents-${year}.png`);
     setExportOpen(false);
   }, [year]);
 
   const handleExportJPEG = useCallback((): void => {
-    void exportImage(chartContainerRef, 'jpeg', year);
+    if (chartContainerRef.current) void exportImage(chartContainerRef.current, 'jpeg', `resolved-incidents-${year}.jpeg`);
     setExportOpen(false);
   }, [year]);
 

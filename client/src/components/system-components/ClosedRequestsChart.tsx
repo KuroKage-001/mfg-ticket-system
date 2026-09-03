@@ -28,7 +28,7 @@ import {
   ResponsiveContainer, RadialBarChart, RadialBar, PolarAngleAxis,
   Cell,
 } from 'recharts';
-import html2canvas from 'html2canvas';
+import { exportImage } from '../../utilities/exportImage';
 import * as XLSXStyle from 'xlsx-js-style';
 import {
   getClosedRequestsMonthly,
@@ -220,41 +220,6 @@ function exportExcel(
   XLSXStyle.writeFile(wb, `closed-requests-${year}.xlsx`);
 }
 
-async function exportImage(
-  containerRef: React.RefObject<HTMLDivElement | null>,
-  format: 'png' | 'jpeg',
-  year: number,
-): Promise<void> {
-  if (!containerRef.current) return;
-  const canvas = await html2canvas(containerRef.current, {
-    backgroundColor: '#ffffff',
-    scale: 2,
-    useCORS: true,
-    logging: false,
-    onclone: (_doc, el) => {
-      el.querySelectorAll<HTMLElement>('*').forEach((node) => {
-        const s = node.style;
-        for (let i = s.length - 1; i >= 0; i--) {
-          const prop = s.item(i);
-          if (s.getPropertyValue(prop).includes('oklch')) s.removeProperty(prop);
-        }
-      });
-      const style = _doc.createElement('style');
-      style.textContent = `*, *::before, *::after {
-        --tw-ring-color: rgba(59,130,246,0.5) !important;
-        --tw-shadow-color: rgba(0,0,0,0.1) !important;
-        color-scheme: light !important;
-      }`;
-      _doc.head.appendChild(style);
-    },
-  });
-  canvas.toBlob(
-    (blob) => { if (blob) downloadBlob(blob, `closed-requests-${year}.${format}`); },
-    `image/${format}`,
-    0.95,
-  );
-}
-
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -342,12 +307,12 @@ export default function ClosedRequestsChart({
   }, [rows, year, barData, assignees]);
 
   const handleExportPNG = useCallback((): void => {
-    void exportImage(chartContainerRef, 'png', year);
+    if (chartContainerRef.current) void exportImage(chartContainerRef.current, 'png', `closed-requests-${year}.png`);
     setExportOpen(false);
   }, [year]);
 
   const handleExportJPEG = useCallback((): void => {
-    void exportImage(chartContainerRef, 'jpeg', year);
+    if (chartContainerRef.current) void exportImage(chartContainerRef.current, 'jpeg', `closed-requests-${year}.jpeg`);
     setExportOpen(false);
   }, [year]);
 

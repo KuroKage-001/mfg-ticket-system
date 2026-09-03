@@ -19,7 +19,7 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
-import html2canvas from 'html2canvas';
+import { exportImage } from '../../utilities/exportImage';
 import * as XLSXStyle from 'xlsx-js-style';
 import {
   getResolvedIncidentsDaily,
@@ -129,42 +129,6 @@ function exportExcel(rows: ResolvedIncidentDayRow[], year: number, month: number
   XLSXStyle.writeFile(wb, buildFilename(year, month, 'xlsx'));
 }
 
-async function exportImage(
-  ref: React.RefObject<HTMLDivElement | null>,
-  format: 'png' | 'jpeg',
-  year: number,
-  month: number,
-): Promise<void> {
-  if (!ref.current) return;
-  const canvas = await html2canvas(ref.current, {
-    backgroundColor: '#ffffff',
-    scale: 2,
-    useCORS: true,
-    logging: false,
-    onclone: (_doc, el) => {
-      el.querySelectorAll<HTMLElement>('*').forEach((node) => {
-        const s = node.style;
-        for (let i = s.length - 1; i >= 0; i--) {
-          const prop = s.item(i);
-          if (s.getPropertyValue(prop).includes('oklch')) s.removeProperty(prop);
-        }
-      });
-      const style = _doc.createElement('style');
-      style.textContent = `*, *::before, *::after {
-        --tw-ring-color: rgba(59,130,246,0.5) !important;
-        --tw-shadow-color: rgba(0,0,0,0.1) !important;
-        color-scheme: light !important;
-      }`;
-      _doc.head.appendChild(style);
-    },
-  });
-  canvas.toBlob(
-    (blob) => { if (blob) downloadBlob(blob, buildFilename(year, month, format)); },
-    `image/${format}`,
-    0.95,
-  );
-}
-
 // ---------------------------------------------------------------------------
 // Custom legend
 // ---------------------------------------------------------------------------
@@ -237,8 +201,8 @@ export default function ResolvedIncidentsDailyChart({
   // Export handlers
   const handleExportCSV   = useCallback(() => { exportCSV(rows, year, month);   setExportOpen(false); }, [rows, year, month]);
   const handleExportExcel = useCallback(() => { exportExcel(rows, year, month); setExportOpen(false); }, [rows, year, month]);
-  const handleExportPNG   = useCallback(() => { void exportImage(chartContainerRef, 'png',  year, month); setExportOpen(false); }, [year, month]);
-  const handleExportJPEG  = useCallback(() => { void exportImage(chartContainerRef, 'jpeg', year, month); setExportOpen(false); }, [year, month]);
+  const handleExportPNG   = useCallback(() => { if (chartContainerRef.current) void exportImage(chartContainerRef.current, 'png',  buildFilename(year, month, 'png'));  setExportOpen(false); }, [year, month]);
+  const handleExportJPEG  = useCallback(() => { if (chartContainerRef.current) void exportImage(chartContainerRef.current, 'jpeg', buildFilename(year, month, 'jpeg')); setExportOpen(false); }, [year, month]);
 
   // ---------------------------------------------------------------------------
   // Render
