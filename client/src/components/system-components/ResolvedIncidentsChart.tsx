@@ -233,6 +233,28 @@ async function exportImage(
     scale: 2,
     useCORS: true,
     logging: false,
+    onclone: (_doc, el) => {
+      // html2canvas v1 cannot parse oklch() (used by Tailwind v4 CSS vars).
+      // Walk every element in the clone and strip oklch values from inline styles.
+      el.querySelectorAll<HTMLElement>('*').forEach((node) => {
+        const s = node.style;
+        for (let i = s.length - 1; i >= 0; i--) {
+          const prop = s.item(i);
+          if (s.getPropertyValue(prop).includes('oklch')) {
+            s.removeProperty(prop);
+          }
+        }
+      });
+      // Also inject a style block that resets all Tailwind oklch CSS vars to
+      // safe sRGB equivalents so computed colors resolve correctly.
+      const style = _doc.createElement('style');
+      style.textContent = `*, *::before, *::after {
+        --tw-ring-color: rgba(59,130,246,0.5) !important;
+        --tw-shadow-color: rgba(0,0,0,0.1) !important;
+        color-scheme: light !important;
+      }`;
+      _doc.head.appendChild(style);
+    },
   });
   canvas.toBlob(
     (blob) => {
