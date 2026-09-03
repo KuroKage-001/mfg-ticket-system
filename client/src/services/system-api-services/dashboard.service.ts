@@ -12,10 +12,17 @@ export interface TicketSummary {
   status: string;
   priority: string;
   category: string;
+  usedKnowledgeBase: boolean;
+  manufacturingSite: string | null;
   assignedToId: number | null;
+  assignedToName: string | null;
+  resolvedByName: string | null;
+  closedByName: string | null;
   createdById: number;
   createdAt: string;
   updatedAt: string;
+  resolvedAt: string | null;
+  closedAt: string | null;
 }
 
 /**

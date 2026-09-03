@@ -405,9 +405,9 @@ function StatusTicketsModal({ status, onClose }: StatusTicketsModalProps): React
       aria-modal="true"
       aria-label={`${STATUS_LABELS[status]} tickets`}
     >
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-5xl max-h-[85vh] flex flex-col">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-[95vw] max-h-[92vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
           <div>
             <h2 className={`text-lg font-bold ${accentMap[status]}`}>
               {STATUS_LABELS[status]} Tickets
@@ -429,7 +429,8 @@ function StatusTicketsModal({ status, onClose }: StatusTicketsModalProps): React
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-auto">
+        <div className="flex-1 overflow-auto min-h-0">
+          <div className="overflow-x-auto h-full">
           {isLoading ? (
             <table className="min-w-full divide-y divide-gray-50">
               <thead className="bg-gray-50 sticky top-0">
@@ -527,6 +528,7 @@ function StatusTicketsModal({ status, onClose }: StatusTicketsModalProps): React
               </tbody>
             </table>
           )}
+          </div>
         </div>
 
         {/* Footer — pagination */}
@@ -721,8 +723,8 @@ function DashboardPage(): React.ReactElement {
             <table className="min-w-full divide-y divide-gray-100">
               <thead className="bg-gray-50">
                 <tr>
-                  {['Ticket #', 'Title', 'Status', 'Priority', 'Created'].map((h) => (
-                    <th key={h} className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wide">{h}</th>
+                  {['Ticket #', 'Status', 'Priority', 'KB', 'Site', 'Assignee', 'Start Time', 'Resolved/Closed Time', 'Resolved/Closed By'].map((h) => (
+                    <th key={h} className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -935,7 +937,7 @@ function DashboardPage(): React.ReactElement {
 
       {/* Recent tickets */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
-        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between shrink-0">
           <h2 className="text-sm font-semibold text-gray-700">Recent Tickets</h2>
           <Link
             to="/tickets"
@@ -952,54 +954,89 @@ function DashboardPage(): React.ReactElement {
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-50">
-              <thead className="bg-gray-50">
+              <thead className="bg-gray-50 sticky top-0 z-10">
                 <tr>
-                  {['Ticket #', 'Title', 'Status', 'Priority', 'Created'].map((h) => (
+                  {['Ticket #', 'Status', 'Priority', 'KB', 'Site', 'Assignee', 'Start Time', 'Resolved/Closed Time', 'Resolved/Closed By'].map((h) => (
                     <th
                       key={h}
-                      className="px-4 py-2.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-widest"
+                      className="px-4 py-2.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-widest whitespace-nowrap"
                     >
                       {h}
                     </th>
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50">
-                {summary.recentTickets.map((ticket) => (
-                  <tr key={ticket.id} className="hover:bg-gray-50/70 transition-colors">
-                    <td className="px-4 py-3">
-                      <Link
-                        to={`/tickets/${ticket.id}`}
-                        className="text-sm font-mono text-gray-600 hover:text-gray-900 hover:underline"
-                      >
-                        {ticket.ticketNumber}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3 max-w-xs">
-                      <Link
-                        to={`/tickets/${ticket.id}`}
-                        className="text-sm text-gray-700 hover:text-gray-900 hover:underline line-clamp-1"
-                      >
-                        {ticket.title}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3">
-                      <TicketStatusBadge status={ticket.status} />
-                    </td>
-                    <td className="px-4 py-3">
-                      <TicketPriorityBadge priority={ticket.priority} />
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-400 whitespace-nowrap">
-                      {new Date(ticket.createdAt).toLocaleDateString(undefined, {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                      })}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
             </table>
+            {/* Scrollable body — fixed height so it doesn't push the page */}
+            <div className="overflow-y-auto max-h-72">
+              <table className="min-w-full divide-y divide-gray-50">
+                <tbody className="divide-y divide-gray-50 bg-white">
+                  {summary.recentTickets.map((ticket) => {
+                    const startTime = new Date(ticket.createdAt).toLocaleString(undefined, {
+                      year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+                    });
+                    const endTimeRaw = ticket.resolvedAt ?? ticket.closedAt;
+                    const endTime = endTimeRaw
+                      ? new Date(endTimeRaw).toLocaleString(undefined, {
+                          year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+                        })
+                      : '—';
+                    const resolvedClosedBy = ticket.resolvedByName ?? ticket.closedByName ?? null;
+
+                    return (
+                      <tr key={ticket.id} className="hover:bg-gray-50/70 transition-colors">
+                        {/* Stacked: MFG number + external ID */}
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <Link
+                            to={`/tickets/${ticket.id}`}
+                            className="block text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                          >
+                            {ticket.ticketNumber}
+                          </Link>
+                          {ticket.title && (
+                            <span className="mt-0.5 inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-mono font-semibold text-gray-500 ring-1 ring-inset ring-gray-200">
+                              {ticket.title}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <TicketStatusBadge status={ticket.status} />
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <TicketPriorityBadge priority={ticket.priority} />
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          {ticket.usedKnowledgeBase ? (
+                            <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-inset ring-emerald-200" title="Resolved using Knowledge Base">
+                              KB
+                            </span>
+                          ) : (
+                            <span className="text-xs text-gray-300">—</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          {ticket.manufacturingSite ? (
+                            <span className="inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-200">
+                              {ticket.manufacturingSite}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-gray-300">—</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
+                          {ticket.assignedToName ?? <span className="italic text-gray-300">Unassigned</span>}
+                        </td>
+                        <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">{startTime}</td>
+                        <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">{endTime}</td>
+                        <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">
+                          {resolvedClosedBy ?? <span className="text-gray-300">—</span>}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>

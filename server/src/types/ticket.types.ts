@@ -144,5 +144,14 @@ export interface RecentTicket {
   title: string;
   status: Status;
   priority: Priority;
+  category: string;
+  usedKnowledgeBase: boolean;
+  manufacturingSite: string | null;
+  assignedToId: number | null;
+  assignedToName: string | null;
+  resolvedByName: string | null;
+  closedByName: string | null;
   createdAt: Date;
+  resolvedAt: Date | null;
+  closedAt: Date | null;
 }

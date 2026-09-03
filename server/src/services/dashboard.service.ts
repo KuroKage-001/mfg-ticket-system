@@ -17,7 +17,16 @@ const RECENT_TICKET_SELECT = {
   title: true,
   status: true,
   priority: true,
+  category: true,
+  usedKnowledgeBase: true,
+  manufacturingSite: true,
+  assignedToId: true,
+  resolvedAt: true,
+  closedAt: true,
   createdAt: true,
+  assignedTo: { select: { fullName: true } },
+  resolvedBy: { select: { fullName: true } },
+  closedBy:   { select: { fullName: true } },
 } as const;
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -85,7 +94,12 @@ export async function getSummary(actorId: number): Promise<DashboardSummary> {
       urgent,
       unassigned,
       myAssigned,
-      recentTickets: recentTickets as RecentTicket[],
+      recentTickets: recentTickets.map((t) => ({
+        ...t,
+        assignedToName: t.assignedTo?.fullName ?? null,
+        resolvedByName: t.resolvedBy?.fullName ?? null,
+        closedByName:   t.closedBy?.fullName   ?? null,
+      })) as RecentTicket[],
     };
   } catch (error) {
     // Re-throw any ApiError as-is (e.g., validation errors from callers)
