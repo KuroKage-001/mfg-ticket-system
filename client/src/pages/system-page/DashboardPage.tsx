@@ -45,13 +45,12 @@ const EXPORT_HEADERS = [
   'Contact Method',
   'Used KB',
   'Assigned To',
-  'Resolved By',
-  'Closed By',
-  'Created By (ID)',
+  'Resolved By (INC)',
+  'Closed By (RITM/SCTASK)',
   'Created At',
   'Updated At',
-  'Resolved At',
-  'Closed At',
+  'Resolved At (INC)',
+  'Closed At (RITM/SCTASK)',
 ] as const;
 
 function ticketToRow(t: TicketSummaryItem): (string | number)[] {
@@ -68,12 +67,11 @@ function ticketToRow(t: TicketSummaryItem): (string | number)[] {
     t.priority,
     t.category,
     t.manufacturingSite ?? '',
-    (t as TicketSummaryItem & { contactMethod?: string }).contactMethod ?? '',
+    t.contactMethod ?? '',
     t.usedKnowledgeBase ? 'Yes' : 'No',
     t.assignedToName ?? 'Unassigned',
     t.resolvedByName ?? '',
     t.closedByName ?? '',
-    t.createdById,
     fmt(t.createdAt),
     fmt(t.updatedAt),
     fmt(t.resolvedAt),
@@ -158,13 +156,12 @@ function exportExcel(tickets: TicketSummaryItem[]): void {
     { wch: 16 }, // Contact Method
     { wch: 9  }, // Used KB
     { wch: 24 }, // Assigned To
-    { wch: 24 }, // Resolved By
-    { wch: 24 }, // Closed By
-    { wch: 14 }, // Created By ID
+    { wch: 24 }, // Resolved By (INC)
+    { wch: 26 }, // Closed By (RITM/SCTASK)
     { wch: 22 }, // Created At
     { wch: 22 }, // Updated At
-    { wch: 22 }, // Resolved At
-    { wch: 22 }, // Closed At
+    { wch: 22 }, // Resolved At (INC)
+    { wch: 26 }, // Closed At (RITM/SCTASK)
   ];
 
   XLSXStyle.utils.book_append_sheet(wb, ws, 'Tickets Report');

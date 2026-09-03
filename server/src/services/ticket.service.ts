@@ -349,10 +349,8 @@ export async function listTickets(
         priority: true,
         status: true,
         usedKnowledgeBase: true,
+        contactMethod: true,
         manufacturingSite: true,
-        // contactMethod is intentionally omitted here — the Prisma client
-        // types are regenerated on server restart; the field is available
-        // on TicketDetail (full fetch) which uses TICKET_DETAIL_INCLUDE.
         createdById: true,
         assignedToId: true,
         assignedTo: {

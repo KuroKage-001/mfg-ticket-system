@@ -47,6 +47,7 @@ export interface TicketSummary {
   priority: Priority;
   status: Status;
   usedKnowledgeBase: boolean;
+  contactMethod: ContactMethod | null;
   manufacturingSite: ManufacturingSite | null;
   createdById: number;
   assignedToId: number | null;

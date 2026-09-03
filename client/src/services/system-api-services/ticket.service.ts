@@ -22,6 +22,7 @@ export interface TicketSummary {
   priority: string;
   category: string;
   usedKnowledgeBase: boolean;
+  contactMethod: string | null;
   manufacturingSite: string | null;
   assignedToId: number | null;
   assignedToName: string | null;
