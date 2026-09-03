@@ -1,70 +1,105 @@
 /**
  * exportImage — captures a DOM element as a PNG or JPEG download.
  *
- * WHY THE EXTRA WORK:
- * html2canvas v1 cannot parse `oklch()` color values, but Tailwind CSS v4
- * compiles all its colors to `oklch()` in the stylesheet bundle.  When
- * html2canvas clones the document the Tailwind <style> tags come with it, so
- * `getComputedStyle` inside the clone still resolves to `oklch()` and the
- * library crashes.
+ * ROOT CAUSE OF THE oklch ERROR:
+ * html2canvas v1 parses CSS from every <style> / <link> tag it finds in the
+ * cloned document.  Tailwind CSS v4 emits ALL colors as oklch() — a color
+ * space that html2canvas v1 simply does not understand.  The `onclone`
+ * callback fires only after the clone is built but BEFORE html2canvas walks
+ * the styles, so we can safely strip every external stylesheet from the clone
+ * and replace it with a tiny override that uses only safe rgb/hex values.
  *
- * THE FIX:
- * Before handing the element to html2canvas we walk every descendant of the
- * *live* element (where the browser's own color engine can resolve oklch just
- * fine) and inline the key color/background/border properties as explicit
- * `rgb(a)` strings directly on the clone's matching nodes.  html2canvas then
- * reads those inline values instead of recomputing from the stylesheet.
+ * STRATEGY:
+ *  1. Before calling html2canvas, read getComputedStyle() on every element of
+ *     the LIVE tree (the browser resolves oklch natively here) and cache the
+ *     key color / background values as rgb() strings.
+ *  2. In `onclone`, remove ALL <link rel="stylesheet"> and <style> tags from
+ *     the cloned document's <head> so html2canvas never sees an oklch value
+ *     in a stylesheet.
+ *  3. Write the cached rgb() values as inline styles on the corresponding
+ *     clone nodes so the visual output is still correct.
  */
 
 import html2canvas from 'html2canvas';
 
-// CSS properties whose computed values may contain oklch and must be inlined.
-const COLOR_PROPS = [
+// The CSS properties we snapshot from the live tree and replay on the clone.
+const SNAPSHOT_PROPS: readonly string[] = [
   'color',
   'background-color',
-  'border-color',
   'border-top-color',
   'border-right-color',
   'border-bottom-color',
   'border-left-color',
   'outline-color',
-  'text-decoration-color',
   'fill',
   'stroke',
-  'box-shadow',
-  'caret-color',
-  'column-rule-color',
-] as const;
+];
+
+type ColorSnapshot = Map<HTMLElement, Record<string, string>>;
 
 /**
- * Read computed color properties from every element in `liveRoot`, then write
- * them as inline styles on the corresponding element in `cloneRoot`.
- *
- * Both trees must have the same structure (as guaranteed by html2canvas's own
- * `onclone` callback, which receives the cloned document element that
- * corresponds to the target element).
+ * Walk the live DOM tree rooted at `root` and record the computed values of
+ * every property in SNAPSHOT_PROPS for each element.  The browser resolves
+ * oklch here just fine — we capture the resulting rgb() strings.
  */
-function inlineComputedColors(
+function snapshotColors(root: HTMLElement): ColorSnapshot {
+  const snapshot: ColorSnapshot = new Map();
+  const nodes = [root, ...Array.from(root.querySelectorAll<HTMLElement>('*'))];
+  for (const node of nodes) {
+    const computed = window.getComputedStyle(node);
+    const entry: Record<string, string> = {};
+    for (const prop of SNAPSHOT_PROPS) {
+      const value = computed.getPropertyValue(prop);
+      if (value && value !== 'none' && value !== '') {
+        entry[prop] = value;
+      }
+    }
+    snapshot.set(node, entry);
+  }
+  return snapshot;
+}
+
+/**
+ * Inside the cloned document:
+ *  - Remove every <link> and <style> tag so no oklch-containing stylesheet
+ *    survives into html2canvas's CSS parser.
+ *  - Replay the snapshot of rgb() values as inline styles on each element
+ *    so the visual result is preserved.
+ */
+function applySnapshotToClone(
+  cloneDoc: Document,
   liveRoot: HTMLElement,
   cloneRoot: HTMLElement,
+  snapshot: ColorSnapshot,
 ): void {
+  // 1. Nuke all stylesheets from the clone's <head>
+  const head = cloneDoc.head;
+  head.querySelectorAll('link[rel="stylesheet"], style').forEach((el) => el.remove());
+
+  // 2. Inject a minimal safe baseline (white bg, black text, reset borders)
+  const base = cloneDoc.createElement('style');
+  base.textContent = `
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+    body { background: #fff; color: #111; }
+  `;
+  head.appendChild(base);
+
+  // 3. Replay snapshotted colors as inline styles on clone nodes
   const liveNodes  = [liveRoot,  ...Array.from(liveRoot.querySelectorAll<HTMLElement>('*'))];
   const cloneNodes = [cloneRoot, ...Array.from(cloneRoot.querySelectorAll<HTMLElement>('*'))];
 
   for (let i = 0; i < liveNodes.length; i++) {
-    const live  = liveNodes[i];
-    const clone = cloneNodes[i];
-    if (!live || !clone) continue;
+    const liveNode  = liveNodes[i];
+    const cloneNode = cloneNodes[i];
+    if (!liveNode || !cloneNode) continue;
 
-    const computed = window.getComputedStyle(live);
+    const entry = snapshot.get(liveNode);
+    if (!entry) continue;
 
-    for (const prop of COLOR_PROPS) {
-      const value = computed.getPropertyValue(prop);
-      // Only bother writing the value if it looks like a color (non-empty,
-      // not "none", not "transparent" — those are all safe for html2canvas).
-      if (value && value !== 'none' && value !== '') {
-        (clone as HTMLElement).style.setProperty(prop, value);
-      }
+    for (const [prop, value] of Object.entries(entry)) {
+      cloneNode.style.setProperty(prop, value);
     }
   }
 }
@@ -74,22 +109,23 @@ function inlineComputedColors(
  *
  * @param element  - The live DOM element to capture.
  * @param format   - `'png'` or `'jpeg'`.
- * @param filename - Download filename including extension, e.g. `'chart-2026.png'`.
+ * @param filename - Download filename including extension.
  */
 export async function exportImage(
   element: HTMLElement,
   format: 'png' | 'jpeg',
   filename: string,
 ): Promise<void> {
+  // Snapshot computed colors BEFORE cloning (live tree, browser-resolved).
+  const snapshot = snapshotColors(element);
+
   const canvas = await html2canvas(element, {
     backgroundColor: '#ffffff',
     scale: 2,
     useCORS: true,
     logging: false,
-    onclone: (_clonedDoc, clonedElement) => {
-      // Inline all computed colors from the live tree onto the clone so that
-      // html2canvas never has to call getComputedStyle on oklch values itself.
-      inlineComputedColors(element, clonedElement);
+    onclone: (clonedDoc, clonedElement) => {
+      applySnapshotToClone(clonedDoc, element, clonedElement, snapshot);
     },
   });
 
