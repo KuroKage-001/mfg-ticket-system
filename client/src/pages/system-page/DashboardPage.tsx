@@ -952,24 +952,22 @@ function DashboardPage(): React.ReactElement {
             No tickets have been created yet.
           </p>
         ) : (
+          /* Single scrollable container — one table so thead/tbody columns are always in sync */
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-50">
-              <thead className="bg-gray-50 sticky top-0 z-10">
-                <tr>
-                  {['Ticket #', 'Status', 'Priority', 'KB', 'Site', 'Assignee', 'Start Time', 'Resolved/Closed Time', 'Resolved/Closed By'].map((h) => (
-                    <th
-                      key={h}
-                      className="px-4 py-2.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-widest whitespace-nowrap"
-                    >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-            </table>
-            {/* Scrollable body — fixed height so it doesn't push the page */}
             <div className="overflow-y-auto max-h-72">
-              <table className="min-w-full divide-y divide-gray-50">
+              <table className="min-w-full divide-y divide-gray-100">
+                <thead className="bg-gray-50 sticky top-0 z-10">
+                  <tr>
+                    {['Ticket #', 'Status', 'Priority', 'KB', 'Site', 'Assignee', 'Start Time', 'Resolved/Closed Time', 'Resolved/Closed By'].map((h) => (
+                      <th
+                        key={h}
+                        className="px-4 py-2.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-widest whitespace-nowrap"
+                      >
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
                 <tbody className="divide-y divide-gray-50 bg-white">
                   {summary.recentTickets.map((ticket) => {
                     const startTime = new Date(ticket.createdAt).toLocaleString(undefined, {
